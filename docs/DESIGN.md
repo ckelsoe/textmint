@@ -135,5 +135,5 @@ Marks: cursor `#33C89E`, sparkle `#CFEAE0`, tile gradient `#2B302E` → `#191D1C
 
 ## Related
 
-- [ROADMAP.md](ROADMAP.md) — color scheme + markdown preview are the P0 design items.
+- `ROADMAP.md` — color scheme + markdown preview are the P0 design items.
 - Preview artifact: "Textmint Theme Preview" (mockups of both themes + swatches).
