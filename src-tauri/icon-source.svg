@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2b302e"/>
+      <stop offset="1" stop-color="#191d1c"/>
+    </linearGradient>
+  </defs>
+  <!-- squircle tile with transparent corners (macOS app-icon shape) -->
+  <rect x="8" y="8" width="112" height="112" rx="28" fill="url(#tile)"/>
+  <!-- monospace text cursor -->
+  <rect x="44" y="42" width="16" height="52" rx="4" fill="#33c89e"/>
+  <!-- clean sparkle -->
+  <path d="M90 34 C 92 45, 95 48, 106 50 C 95 52, 92 55, 90 66 C 88 55, 85 52, 74 50 C 85 48, 88 45, 90 34 Z" fill="#cfeae0"/>
+</svg>

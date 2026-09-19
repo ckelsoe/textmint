@@ -1,0 +1,39 @@
+name: CI
+
+# Runs the same scripts/check.sh the pre-commit and pre-push hooks run, so a
+# green local run means a green run here. macOS because that is the target that
+# ships; a Tauri cargo check on Linux would pull in the GTK/WebKit stack that
+# the macOS build never links (see docs/SECURITY.md).
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: checks
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Use the pinned Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: cargo-${{ runner.os }}-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: cargo-${{ runner.os }}-
+
+      - name: Run checks
+        run: scripts/check.sh

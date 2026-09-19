@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+#
+# Fast, offline, deterministic gate. Skips cargo check; pre-push runs that.
+# Checks the working tree, not just the staged diff.
+#
+# Bypass in an emergency with: git commit --no-verify
+#
+set -uo pipefail
+
+ROOT=$(git rev-parse --show-toplevel) || exit 1
+cd "$ROOT" || exit 1
+
+if ! scripts/check.sh --fast; then
+  echo >&2
+  echo "commit blocked by scripts/check.sh" >&2
+  echo "fix the failures above, or bypass once with: git commit --no-verify" >&2
+  exit 1
+fi

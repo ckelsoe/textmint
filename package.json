@@ -1,0 +1,16 @@
+{
+  "name": "textmint",
+  "private": true,
+  "version": "0.2.0",
+  "description": "Clean & convert AI text, entirely on-device.",
+  "author": "Charles Kelsoe",
+  "type": "module",
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

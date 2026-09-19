@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Textmint</title>
+    <script type="module" src="/main.js" defer></script>
+  </head>
+
+  <body>
+    <header>
+      <div class="brand">
+        <svg class="brand-mark" width="26" height="26" viewBox="0 0 128 128" aria-hidden="true">
+          <defs>
+            <linearGradient id="brandtile" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#2b302e" />
+              <stop offset="1" stop-color="#191d1c" />
+            </linearGradient>
+          </defs>
+          <rect x="8" y="8" width="112" height="112" rx="28" fill="url(#brandtile)" />
+          <rect x="44" y="42" width="16" height="52" rx="4" fill="#33c89e" />
+          <path d="M90 34 C 92 45, 95 48, 106 50 C 95 52, 92 55, 90 66 C 88 55, 85 52, 74 50 C 85 48, 88 45, 90 34 Z" fill="#cfeae0" />
+        </svg>
+        <h1><span class="title-text">Text</span><span class="title-mint">mint</span></h1>
+      </div>
+      <div class="controls">
+        <div class="control-group" data-tip="Strips markdown formatting symbols: **bold**, # headers, backtick code, and [links](url). Output is plain text.">
+          <input type="checkbox" id="opt-strip-markdown" checked />
+          <label for="opt-strip-markdown">Strip markdown</label>
+        </div>
+        <div class="control-group" data-tip="Hard-wraps long lines at the specified character width. Turn off to let your email client handle line length.">
+          <input type="checkbox" id="opt-wrap" checked />
+          <label for="opt-wrap">Wrap at</label>
+          <input type="number" id="opt-wrap-width" value="80" min="40" max="200" />
+          <label for="opt-wrap-width">chars</label>
+        </div>
+        <div class="control-group" data-tip="Collapses runs of 3 or more consecutive blank lines down to one blank line.">
+          <input type="checkbox" id="opt-collapse-blank" checked />
+          <label for="opt-collapse-blank">Collapse blank lines</label>
+        </div>
+        <div class="control-group" data-tip="Removes leading spaces and tabs from the start of every line.">
+          <input type="checkbox" id="opt-strip-indent" checked />
+          <label for="opt-strip-indent">Strip leading spaces</label>
+        </div>
+        <div class="control-group" data-tip="Normalizes * and + list markers to a plain - dash for consistent bullet style.">
+          <input type="checkbox" id="opt-bullets" checked />
+          <label for="opt-bullets">Normalize bullets</label>
+        </div>
+        <div class="control-group" data-tip="Joins soft-wrapped lines within a paragraph back into one flowing line. Short lines without terminal punctuation (headers, titles) are left alone.">
+          <input type="checkbox" id="opt-join-lines" checked />
+          <label for="opt-join-lines">Join paragraph lines</label>
+        </div>
+        <div class="control-group" data-tip="Removes AI terminal artifacts: Thought for Xs lines, nested output lines starting with the arrow symbol, (ctrl+o to expand) text, and tool-marker prefix symbols.">
+          <input type="checkbox" id="opt-strip-noise" checked />
+          <label for="opt-strip-noise">Strip AI noise</label>
+        </div>
+        <div class="control-group" data-tip="Removes emojis, zero-width characters, variation selectors, text direction marks, control characters, math symbols, and non-ASCII currency symbols.">
+          <input type="checkbox" id="opt-strip-unicode" checked />
+          <label for="opt-strip-unicode">Strip Unicode junk</label>
+        </div>
+      </div>
+      <div class="actions">
+        <button id="btn-clear" data-tip="Clears both the input and output panes.">Clear</button>
+        <button id="btn-clean" data-tip="Runs the cleaning pipeline on the input. Shortcut: Cmd+Enter.">Clean</button>
+        <button id="btn-copy" data-tip="Copies the cleaned plain text to the clipboard. Paste anywhere as plain text. Shortcut: Cmd+Shift+C.">Copy</button>
+        <button id="btn-copy-html" data-tip="Converts markdown to formatted HTML and copies as rich text. Paste into Outlook or Word to get bold, bullets, and headers rendered. Does not re-wrap lines.">Copy HTML</button>
+        <button id="btn-theme" data-tip="Switch between dark and light mode. Preference is saved.">&#9681;</button>
+      </div>
+    </header>
+
+    <div class="panes">
+      <div class="pane">
+        <div class="pane-label">Input <span>paste AI output here</span></div>
+        <textarea id="input" placeholder="Paste AI output here..."></textarea>
+      </div>
+      <div class="pane">
+        <div class="pane-label">Output <span id="output-meta"></span></div>
+        <textarea id="output" readonly placeholder="Cleaned text appears here..."></textarea>
+      </div>
+    </div>
+
+    <div class="status-bar">
+      <span id="stat-in">In: 0 chars</span>
+      <span id="stat-out">Out: 0 chars</span>
+      <span id="stat-lines">0 lines</span>
+      <span class="footer-credit">Created by Charles Kelsoe &nbsp;<span class="footer-version">v0.2</span></span>
+      <span class="footer-shortcuts">Cmd+Enter to clean &nbsp; Cmd+Shift+C to copy</span>
+    </div>
+  </body>
+</html>

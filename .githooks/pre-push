@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+#
+# Runs the full local CI before a push. CI runs the same scripts/check.sh.
+#
+# Bypass in an emergency with: git push --no-verify
+#
+set -uo pipefail
+
+ROOT=$(git rev-parse --show-toplevel) || exit 1
+cd "$ROOT" || exit 1
+
+if ! scripts/check.sh; then
+  echo >&2
+  echo "push blocked by scripts/check.sh" >&2
+  exit 1
+fi
