@@ -1,0 +1,716 @@
+{
+  "ai-noise": {
+    "none": {
+      "clean": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)",
+      "markdown": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)"
+    },
+    "stripNoise": {
+      "clean": "running a tool\nanother\nreal content",
+      "markdown": "running a tool\nanother\nreal content"
+    },
+    "stripUnicode": {
+      "clean": "Thought for 8s\n● running a tool\n another\nreal content (ctrl+o to expand)",
+      "markdown": "Thought for 8s\n● running a tool\n another\nreal content (ctrl+o to expand)"
+    },
+    "stripMarkdown": {
+      "clean": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)",
+      "markdown": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)"
+    },
+    "bullets": {
+      "clean": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)",
+      "markdown": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)"
+    },
+    "joinLines": {
+      "clean": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)",
+      "markdown": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)"
+    },
+    "stripIndent": {
+      "clean": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)",
+      "markdown": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)"
+    },
+    "collapseBlank": {
+      "clean": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)",
+      "markdown": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)"
+    },
+    "wrap": {
+      "clean": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)",
+      "markdown": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)"
+    },
+    "all": {
+      "clean": "running a tool\nanother\nreal content",
+      "markdown": "running a tool\nanother\nreal content"
+    }
+  },
+  "invisibles": {
+    "none": {
+      "clean": "a​b­c﻿d and bidi ‪e⁦f plus vs ️",
+      "markdown": "a​b­c﻿d and bidi ‪e⁦f plus vs ️"
+    },
+    "stripNoise": {
+      "clean": "a​b­c﻿d and bidi ‪e⁦f plus vs ️",
+      "markdown": "a​b­c﻿d and bidi ‪e⁦f plus vs ️"
+    },
+    "stripUnicode": {
+      "clean": "abcd and bidi ef plus vs",
+      "markdown": "abcd and bidi ef plus vs"
+    },
+    "stripMarkdown": {
+      "clean": "a​b­c﻿d and bidi ‪e⁦f plus vs ️",
+      "markdown": "a​b­c﻿d and bidi ‪e⁦f plus vs ️"
+    },
+    "bullets": {
+      "clean": "a​b­c﻿d and bidi ‪e⁦f plus vs ️",
+      "markdown": "a​b­c﻿d and bidi ‪e⁦f plus vs ️"
+    },
+    "joinLines": {
+      "clean": "a​b­c﻿d and bidi ‪e⁦f plus vs ️",
+      "markdown": "a​b­c﻿d and bidi ‪e⁦f plus vs ️"
+    },
+    "stripIndent": {
+      "clean": "a​b­c﻿d and bidi ‪e⁦f plus vs ️",
+      "markdown": "a​b­c﻿d and bidi ‪e⁦f plus vs ️"
+    },
+    "collapseBlank": {
+      "clean": "a​b­c﻿d and bidi ‪e⁦f plus vs ️",
+      "markdown": "a​b­c﻿d and bidi ‪e⁦f plus vs ️"
+    },
+    "wrap": {
+      "clean": "a​b­c﻿d and bidi ‪e⁦f plus vs ️",
+      "markdown": "a​b­c﻿d and bidi ‪e⁦f plus vs ️"
+    },
+    "all": {
+      "clean": "abcd and bidi ef plus vs",
+      "markdown": "abcd and bidi ef plus vs"
+    }
+  },
+  "pipe-table": {
+    "none": {
+      "clean": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table.",
+      "markdown": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table."
+    },
+    "stripNoise": {
+      "clean": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table.",
+      "markdown": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table."
+    },
+    "stripUnicode": {
+      "clean": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table.",
+      "markdown": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table."
+    },
+    "stripMarkdown": {
+      "clean": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table.",
+      "markdown": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table."
+    },
+    "bullets": {
+      "clean": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table.",
+      "markdown": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table."
+    },
+    "joinLines": {
+      "clean": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table.",
+      "markdown": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table."
+    },
+    "stripIndent": {
+      "clean": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table.",
+      "markdown": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table."
+    },
+    "collapseBlank": {
+      "clean": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table.",
+      "markdown": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table."
+    },
+    "wrap": {
+      "clean": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table.",
+      "markdown": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table."
+    },
+    "all": {
+      "clean": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table.",
+      "markdown": "| a | b |\n|---|---|\n| 1 | 2 |\n\nAfter the table."
+    }
+  },
+  "box-diagram": {
+    "none": {
+      "clean": "┌───┐\n│ a │\n└───┘\n\nAfter box.",
+      "markdown": "```\n┌───┐\n│ a │\n└───┘\n```\n\nAfter box."
+    },
+    "stripNoise": {
+      "clean": "┌───┐\n│ a │\n└───┘\n\nAfter box.",
+      "markdown": "```\n┌───┐\n│ a │\n└───┘\n```\n\nAfter box."
+    },
+    "stripUnicode": {
+      "clean": "┌───┐\n│ a │\n└───┘\n\nAfter box.",
+      "markdown": "```\n┌───┐\n│ a │\n└───┘\n```\n\nAfter box."
+    },
+    "stripMarkdown": {
+      "clean": "┌───┐\n│ a │\n└───┘\n\nAfter box.",
+      "markdown": "```\n┌───┐\n│ a │\n└───┘\n```\n\nAfter box."
+    },
+    "bullets": {
+      "clean": "┌───┐\n│ a │\n└───┘\n\nAfter box.",
+      "markdown": "```\n┌───┐\n│ a │\n└───┘\n```\n\nAfter box."
+    },
+    "joinLines": {
+      "clean": "┌───┐\n│ a │\n└───┘\n\nAfter box.",
+      "markdown": "```\n┌───┐\n│ a │\n└───┘\n```\n\nAfter box."
+    },
+    "stripIndent": {
+      "clean": "┌───┐\n│ a │\n└───┘\n\nAfter box.",
+      "markdown": "```\n┌───┐\n│ a │\n└───┘\n```\n\nAfter box."
+    },
+    "collapseBlank": {
+      "clean": "┌───┐\n│ a │\n└───┘\n\nAfter box.",
+      "markdown": "```\n┌───┐\n│ a │\n└───┘\n```\n\nAfter box."
+    },
+    "wrap": {
+      "clean": "┌───┐\n│ a │\n└───┘\n\nAfter box.",
+      "markdown": "```\n┌───┐\n│ a │\n└───┘\n```\n\nAfter box."
+    },
+    "all": {
+      "clean": "┌───┐\n│ a │\n└───┘\n\nAfter box.",
+      "markdown": "```\n┌───┐\n│ a │\n└───┘\n```\n\nAfter box."
+    }
+  },
+  "code-fence": {
+    "none": {
+      "clean": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence.",
+      "markdown": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence."
+    },
+    "stripNoise": {
+      "clean": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence.",
+      "markdown": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence."
+    },
+    "stripUnicode": {
+      "clean": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence.",
+      "markdown": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence."
+    },
+    "stripMarkdown": {
+      "clean": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence.",
+      "markdown": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence."
+    },
+    "bullets": {
+      "clean": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence.",
+      "markdown": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence."
+    },
+    "joinLines": {
+      "clean": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence.",
+      "markdown": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence."
+    },
+    "stripIndent": {
+      "clean": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence.",
+      "markdown": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence."
+    },
+    "collapseBlank": {
+      "clean": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence.",
+      "markdown": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence."
+    },
+    "wrap": {
+      "clean": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence.",
+      "markdown": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence."
+    },
+    "all": {
+      "clean": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence.",
+      "markdown": "```js\nconst x = 1;\n    indented;\n```\n\nAfter fence."
+    }
+  },
+  "indented-fence": {
+    "none": {
+      "clean": "- item:\n\n  ```js\n  const y = snake_case_x;\n  ```\n\nAfter.",
+      "markdown": "- item:\n\n```js\nconst y = snake_case_x;\n```\n\nAfter."
+    },
+    "stripNoise": {
+      "clean": "- item:\n\n  ```js\n  const y = snake_case_x;\n  ```\n\nAfter.",
+      "markdown": "- item:\n\n```js\nconst y = snake_case_x;\n```\n\nAfter."
+    },
+    "stripUnicode": {
+      "clean": "- item:\n\n  ```js\n  const y = snake_case_x;\n  ```\n\nAfter.",
+      "markdown": "- item:\n\n```js\nconst y = snake_case_x;\n```\n\nAfter."
+    },
+    "stripMarkdown": {
+      "clean": "- item:\n\n  ```js\n  const y = snake_case_x;\n  ```\n\nAfter.",
+      "markdown": "- item:\n\n```js\nconst y = snake_case_x;\n```\n\nAfter."
+    },
+    "bullets": {
+      "clean": "- item:\n\n  ```js\n  const y = snake_case_x;\n  ```\n\nAfter.",
+      "markdown": "- item:\n\n```js\nconst y = snake_case_x;\n```\n\nAfter."
+    },
+    "joinLines": {
+      "clean": "- item:\n\n  ```js\n  const y = snake_case_x;\n  ```\n\nAfter.",
+      "markdown": "- item:\n\n```js\nconst y = snake_case_x;\n```\n\nAfter."
+    },
+    "stripIndent": {
+      "clean": "- item:\n\n  ```js\n  const y = snake_case_x;\n  ```\n\nAfter.",
+      "markdown": "- item:\n\n```js\nconst y = snake_case_x;\n```\n\nAfter."
+    },
+    "collapseBlank": {
+      "clean": "- item:\n\n  ```js\n  const y = snake_case_x;\n  ```\n\nAfter.",
+      "markdown": "- item:\n\n```js\nconst y = snake_case_x;\n```\n\nAfter."
+    },
+    "wrap": {
+      "clean": "- item:\n\n  ```js\n  const y = snake_case_x;\n  ```\n\nAfter.",
+      "markdown": "- item:\n\n```js\nconst y = snake_case_x;\n```\n\nAfter."
+    },
+    "all": {
+      "clean": "- item:\n\n  ```js\n  const y = snake_case_x;\n  ```\n\nAfter.",
+      "markdown": "- item:\n\n```js\nconst y = snake_case_x;\n```\n\nAfter."
+    }
+  },
+  "unclosed-fence": {
+    "none": {
+      "clean": "```js\nconst x = _a_;\nmore code here",
+      "markdown": "```js\nconst x = _a_;\nmore code here"
+    },
+    "stripNoise": {
+      "clean": "```js\nconst x = _a_;\nmore code here",
+      "markdown": "```js\nconst x = _a_;\nmore code here"
+    },
+    "stripUnicode": {
+      "clean": "```js\nconst x = _a_;\nmore code here",
+      "markdown": "```js\nconst x = _a_;\nmore code here"
+    },
+    "stripMarkdown": {
+      "clean": "```js\nconst x = _a_;\nmore code here",
+      "markdown": "```js\nconst x = _a_;\nmore code here"
+    },
+    "bullets": {
+      "clean": "```js\nconst x = _a_;\nmore code here",
+      "markdown": "```js\nconst x = _a_;\nmore code here"
+    },
+    "joinLines": {
+      "clean": "```js\nconst x = _a_;\nmore code here",
+      "markdown": "```js\nconst x = _a_;\nmore code here"
+    },
+    "stripIndent": {
+      "clean": "```js\nconst x = _a_;\nmore code here",
+      "markdown": "```js\nconst x = _a_;\nmore code here"
+    },
+    "collapseBlank": {
+      "clean": "```js\nconst x = _a_;\nmore code here",
+      "markdown": "```js\nconst x = _a_;\nmore code here"
+    },
+    "wrap": {
+      "clean": "```js\nconst x = _a_;\nmore code here",
+      "markdown": "```js\nconst x = _a_;\nmore code here"
+    },
+    "all": {
+      "clean": "```js\nconst x = _a_;\nmore code here",
+      "markdown": "```js\nconst x = _a_;\nmore code here"
+    }
+  },
+  "underscores": {
+    "none": {
+      "clean": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here.",
+      "markdown": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here."
+    },
+    "stripNoise": {
+      "clean": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here.",
+      "markdown": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here."
+    },
+    "stripUnicode": {
+      "clean": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here.",
+      "markdown": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here."
+    },
+    "stripMarkdown": {
+      "clean": "Keep snake_case and Textmint_0.1.0_aarch64 but strip italic here.",
+      "markdown": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here."
+    },
+    "bullets": {
+      "clean": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here.",
+      "markdown": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here."
+    },
+    "joinLines": {
+      "clean": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here.",
+      "markdown": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here."
+    },
+    "stripIndent": {
+      "clean": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here.",
+      "markdown": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here."
+    },
+    "collapseBlank": {
+      "clean": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here.",
+      "markdown": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here."
+    },
+    "wrap": {
+      "clean": "Keep snake_case and\nTextmint_0.1.0_aarch64 but strip\n_italic_ here.",
+      "markdown": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here."
+    },
+    "all": {
+      "clean": "Keep snake_case and\nTextmint_0.1.0_aarch64 but strip italic\nhere.",
+      "markdown": "Keep snake_case and Textmint_0.1.0_aarch64 but strip _italic_ here."
+    }
+  },
+  "bullets": {
+    "none": {
+      "clean": "* one\n+ two\n-  three",
+      "markdown": "* one\n+ two\n-  three"
+    },
+    "stripNoise": {
+      "clean": "* one\n+ two\n-  three",
+      "markdown": "* one\n+ two\n-  three"
+    },
+    "stripUnicode": {
+      "clean": "* one\n+ two\n-  three",
+      "markdown": "* one\n+ two\n-  three"
+    },
+    "stripMarkdown": {
+      "clean": "* one\n+ two\n-  three",
+      "markdown": "* one\n+ two\n-  three"
+    },
+    "bullets": {
+      "clean": "- one\n- two\n- three",
+      "markdown": "* one\n+ two\n-  three"
+    },
+    "joinLines": {
+      "clean": "* one\n+ two\n-  three",
+      "markdown": "* one\n+ two\n-  three"
+    },
+    "stripIndent": {
+      "clean": "* one\n+ two\n-  three",
+      "markdown": "* one\n+ two\n-  three"
+    },
+    "collapseBlank": {
+      "clean": "* one\n+ two\n-  three",
+      "markdown": "* one\n+ two\n-  three"
+    },
+    "wrap": {
+      "clean": "* one\n+ two\n-  three",
+      "markdown": "* one\n+ two\n-  three"
+    },
+    "all": {
+      "clean": "- one\n- two\n- three",
+      "markdown": "* one\n+ two\n-  three"
+    }
+  },
+  "long-line": {
+    "none": {
+      "clean": "A line that is quite long and should wrap when the width is small enough to matter.",
+      "markdown": "A line that is quite long and should wrap when the width is small enough to matter."
+    },
+    "stripNoise": {
+      "clean": "A line that is quite long and should wrap when the width is small enough to matter.",
+      "markdown": "A line that is quite long and should wrap when the width is small enough to matter."
+    },
+    "stripUnicode": {
+      "clean": "A line that is quite long and should wrap when the width is small enough to matter.",
+      "markdown": "A line that is quite long and should wrap when the width is small enough to matter."
+    },
+    "stripMarkdown": {
+      "clean": "A line that is quite long and should wrap when the width is small enough to matter.",
+      "markdown": "A line that is quite long and should wrap when the width is small enough to matter."
+    },
+    "bullets": {
+      "clean": "A line that is quite long and should wrap when the width is small enough to matter.",
+      "markdown": "A line that is quite long and should wrap when the width is small enough to matter."
+    },
+    "joinLines": {
+      "clean": "A line that is quite long and should wrap when the width is small enough to matter.",
+      "markdown": "A line that is quite long and should wrap when the width is small enough to matter."
+    },
+    "stripIndent": {
+      "clean": "A line that is quite long and should wrap when the width is small enough to matter.",
+      "markdown": "A line that is quite long and should wrap when the width is small enough to matter."
+    },
+    "collapseBlank": {
+      "clean": "A line that is quite long and should wrap when the width is small enough to matter.",
+      "markdown": "A line that is quite long and should wrap when the width is small enough to matter."
+    },
+    "wrap": {
+      "clean": "A line that is quite long and should\nwrap when the width is small enough to\nmatter.",
+      "markdown": "A line that is quite long and should wrap when the width is small enough to matter."
+    },
+    "all": {
+      "clean": "A line that is quite long and should\nwrap when the width is small enough to\nmatter.",
+      "markdown": "A line that is quite long and should wrap when the width is small enough to matter."
+    }
+  },
+  "headings": {
+    "none": {
+      "clean": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks.",
+      "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks."
+    },
+    "stripNoise": {
+      "clean": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks.",
+      "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks."
+    },
+    "stripUnicode": {
+      "clean": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks.",
+      "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks."
+    },
+    "stripMarkdown": {
+      "clean": "Heading\n\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks.",
+      "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks."
+    },
+    "bullets": {
+      "clean": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks.",
+      "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks."
+    },
+    "joinLines": {
+      "clean": "# Heading\n\nPara one. Para two continues here.\n\n\n\n\nAfter many blanks.",
+      "markdown": "# Heading\n\nPara one. Para two continues here.\n\n\n\n\nAfter many blanks."
+    },
+    "stripIndent": {
+      "clean": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks.",
+      "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks."
+    },
+    "collapseBlank": {
+      "clean": "# Heading\n\nPara one.\nPara two continues here.\n\nAfter many blanks.",
+      "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\nAfter many blanks."
+    },
+    "wrap": {
+      "clean": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks.",
+      "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks."
+    },
+    "all": {
+      "clean": "Heading\n\n\nPara one. Para two continues here.\n\nAfter many blanks.",
+      "markdown": "# Heading\n\nPara one. Para two continues here.\n\nAfter many blanks."
+    }
+  },
+  "indented": {
+    "none": {
+      "clean": "indented line\n\ttabbed line",
+      "markdown": "indented line\n\ttabbed line"
+    },
+    "stripNoise": {
+      "clean": "indented line\n\ttabbed line",
+      "markdown": "indented line\n\ttabbed line"
+    },
+    "stripUnicode": {
+      "clean": "indented line\n\ttabbed line",
+      "markdown": "indented line\n\ttabbed line"
+    },
+    "stripMarkdown": {
+      "clean": "indented line\n\ttabbed line",
+      "markdown": "indented line\n\ttabbed line"
+    },
+    "bullets": {
+      "clean": "indented line\n\ttabbed line",
+      "markdown": "indented line\n\ttabbed line"
+    },
+    "joinLines": {
+      "clean": "indented line\ntabbed line",
+      "markdown": "indented line\ntabbed line"
+    },
+    "stripIndent": {
+      "clean": "indented line\ntabbed line",
+      "markdown": "indented line\ntabbed line"
+    },
+    "collapseBlank": {
+      "clean": "indented line\n\ttabbed line",
+      "markdown": "indented line\n\ttabbed line"
+    },
+    "wrap": {
+      "clean": "indented line\n\ttabbed line",
+      "markdown": "indented line\n\ttabbed line"
+    },
+    "all": {
+      "clean": "indented line\ntabbed line",
+      "markdown": "indented line\ntabbed line"
+    }
+  },
+  "inline-md": {
+    "none": {
+      "clean": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~",
+      "markdown": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~"
+    },
+    "stripNoise": {
+      "clean": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~",
+      "markdown": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~"
+    },
+    "stripUnicode": {
+      "clean": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~",
+      "markdown": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~"
+    },
+    "stripMarkdown": {
+      "clean": "link and img and code and strike",
+      "markdown": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~"
+    },
+    "bullets": {
+      "clean": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~",
+      "markdown": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~"
+    },
+    "joinLines": {
+      "clean": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~",
+      "markdown": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~"
+    },
+    "stripIndent": {
+      "clean": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~",
+      "markdown": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~"
+    },
+    "collapseBlank": {
+      "clean": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~",
+      "markdown": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~"
+    },
+    "wrap": {
+      "clean": "[link](https://x.com) and ![img](y.png)\nand `code` and ~~strike~~",
+      "markdown": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~"
+    },
+    "all": {
+      "clean": "link and img and code and strike",
+      "markdown": "[link](https://x.com) and ![img](y.png) and `code` and ~~strike~~"
+    }
+  },
+  "blockquote": {
+    "none": {
+      "clean": "> quoted\n> more\n\n---\n\n***bold em***",
+      "markdown": "> quoted\n> more\n\n---\n\n***bold em***"
+    },
+    "stripNoise": {
+      "clean": "> quoted\n> more\n\n---\n\n***bold em***",
+      "markdown": "> quoted\n> more\n\n---\n\n***bold em***"
+    },
+    "stripUnicode": {
+      "clean": "> quoted\n> more\n\n---\n\n***bold em***",
+      "markdown": "> quoted\n> more\n\n---\n\n***bold em***"
+    },
+    "stripMarkdown": {
+      "clean": "quoted\nmore\n\n\nbold em",
+      "markdown": "> quoted\n> more\n\n---\n\n***bold em***"
+    },
+    "bullets": {
+      "clean": "> quoted\n> more\n\n---\n\n***bold em***",
+      "markdown": "> quoted\n> more\n\n---\n\n***bold em***"
+    },
+    "joinLines": {
+      "clean": "> quoted\n> more\n\n---\n\n***bold em***",
+      "markdown": "> quoted\n> more\n\n---\n\n***bold em***"
+    },
+    "stripIndent": {
+      "clean": "> quoted\n> more\n\n---\n\n***bold em***",
+      "markdown": "> quoted\n> more\n\n---\n\n***bold em***"
+    },
+    "collapseBlank": {
+      "clean": "> quoted\n> more\n\n---\n\n***bold em***",
+      "markdown": "> quoted\n> more\n\n---\n\n***bold em***"
+    },
+    "wrap": {
+      "clean": "> quoted\n> more\n\n---\n\n***bold em***",
+      "markdown": "> quoted\n> more\n\n---\n\n***bold em***"
+    },
+    "all": {
+      "clean": "quoted\nmore\n\n\nbold em",
+      "markdown": "> quoted\n> more\n\n---\n\n***bold em***"
+    }
+  },
+  "strong-em": {
+    "none": {
+      "clean": "__strong__ and _em_ and a__b__c should differ",
+      "markdown": "__strong__ and _em_ and a__b__c should differ"
+    },
+    "stripNoise": {
+      "clean": "__strong__ and _em_ and a__b__c should differ",
+      "markdown": "__strong__ and _em_ and a__b__c should differ"
+    },
+    "stripUnicode": {
+      "clean": "__strong__ and _em_ and a__b__c should differ",
+      "markdown": "__strong__ and _em_ and a__b__c should differ"
+    },
+    "stripMarkdown": {
+      "clean": "strong and em and a__b__c should differ",
+      "markdown": "__strong__ and _em_ and a__b__c should differ"
+    },
+    "bullets": {
+      "clean": "__strong__ and _em_ and a__b__c should differ",
+      "markdown": "__strong__ and _em_ and a__b__c should differ"
+    },
+    "joinLines": {
+      "clean": "__strong__ and _em_ and a__b__c should differ",
+      "markdown": "__strong__ and _em_ and a__b__c should differ"
+    },
+    "stripIndent": {
+      "clean": "__strong__ and _em_ and a__b__c should differ",
+      "markdown": "__strong__ and _em_ and a__b__c should differ"
+    },
+    "collapseBlank": {
+      "clean": "__strong__ and _em_ and a__b__c should differ",
+      "markdown": "__strong__ and _em_ and a__b__c should differ"
+    },
+    "wrap": {
+      "clean": "__strong__ and _em_ and a__b__c should\ndiffer",
+      "markdown": "__strong__ and _em_ and a__b__c should differ"
+    },
+    "all": {
+      "clean": "strong and em and a__b__c should differ",
+      "markdown": "__strong__ and _em_ and a__b__c should differ"
+    }
+  },
+  "empty": {
+    "none": {
+      "clean": "",
+      "markdown": ""
+    },
+    "stripNoise": {
+      "clean": "",
+      "markdown": ""
+    },
+    "stripUnicode": {
+      "clean": "",
+      "markdown": ""
+    },
+    "stripMarkdown": {
+      "clean": "",
+      "markdown": ""
+    },
+    "bullets": {
+      "clean": "",
+      "markdown": ""
+    },
+    "joinLines": {
+      "clean": "",
+      "markdown": ""
+    },
+    "stripIndent": {
+      "clean": "",
+      "markdown": ""
+    },
+    "collapseBlank": {
+      "clean": "",
+      "markdown": ""
+    },
+    "wrap": {
+      "clean": "",
+      "markdown": ""
+    },
+    "all": {
+      "clean": "",
+      "markdown": ""
+    }
+  },
+  "whitespace-only": {
+    "none": {
+      "clean": "",
+      "markdown": ""
+    },
+    "stripNoise": {
+      "clean": "",
+      "markdown": ""
+    },
+    "stripUnicode": {
+      "clean": "",
+      "markdown": ""
+    },
+    "stripMarkdown": {
+      "clean": "",
+      "markdown": ""
+    },
+    "bullets": {
+      "clean": "",
+      "markdown": ""
+    },
+    "joinLines": {
+      "clean": "",
+      "markdown": ""
+    },
+    "stripIndent": {
+      "clean": "",
+      "markdown": ""
+    },
+    "collapseBlank": {
+      "clean": "",
+      "markdown": ""
+    },
+    "wrap": {
+      "clean": "",
+      "markdown": ""
+    },
+    "all": {
+      "clean": "",
+      "markdown": ""
+    }
+  }
+}
