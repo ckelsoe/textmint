@@ -75,8 +75,19 @@
         <textarea id="input" placeholder="Paste AI output here..."></textarea>
       </div>
       <div class="pane">
-        <div class="pane-label">Output <span id="output-meta"></span></div>
-        <textarea id="output" readonly placeholder="Cleaned text appears here..."></textarea>
+        <div class="pane-label">
+          <div class="output-tabs" role="tablist" aria-label="Output view">
+            <button class="tab active" id="tab-text" data-view="text" role="tab" aria-selected="true" aria-controls="output" data-tip="Cleaned plain text: markdown removed. This is what Copy copies.">Text</button>
+            <button class="tab" id="tab-markdown" data-view="markdown" role="tab" aria-selected="false" tabindex="-1" aria-controls="output-markdown" data-tip="Cleaned text with its markdown kept. This is the source the Preview is rendered from.">Markdown</button>
+            <button class="tab" id="tab-html" data-view="html" role="tab" aria-selected="false" tabindex="-1" aria-controls="output-html" data-tip="The HTML source generated from the markdown. This is what Copy HTML puts on the clipboard.">HTML</button>
+            <button class="tab" id="tab-rendered" data-view="rendered" role="tab" aria-selected="false" tabindex="-1" aria-controls="output-rendered" data-tip="The formatted result: the markdown rendered to HTML. Remote images do not load here but do paste; this is what Copy HTML sends to Word or Outlook.">Preview</button>
+          </div>
+          <span id="output-meta"></span>
+        </div>
+        <textarea id="output" class="output-view" role="tabpanel" aria-labelledby="tab-text" readonly placeholder="Cleaned text appears here..."></textarea>
+        <textarea id="output-markdown" class="output-view" role="tabpanel" aria-labelledby="tab-markdown" readonly placeholder="Cleaned markdown appears here..." hidden></textarea>
+        <textarea id="output-html" class="output-view" role="tabpanel" aria-labelledby="tab-html" readonly placeholder="HTML source appears here..." hidden></textarea>
+        <div id="output-rendered" class="output-view md-body" role="tabpanel" aria-labelledby="tab-rendered" tabindex="0" hidden></div>
       </div>
     </div>
 
@@ -84,7 +95,7 @@
       <span id="stat-in">In: 0 chars</span>
       <span id="stat-out">Out: 0 chars</span>
       <span id="stat-lines">0 lines</span>
-      <span class="footer-credit">Created by Charles Kelsoe &nbsp;<span class="footer-version">v0.2</span></span>
+      <span class="footer-credit">Created by Charles Kelsoe &nbsp;<span class="footer-version">v0.3</span></span>
       <span class="footer-shortcuts">Cmd+Enter to clean &nbsp; Cmd+Shift+C to copy</span>
     </div>
   </body>

@@ -220,7 +220,10 @@ textarea:focus-visible {
 }
 
 .pane-label {
-  padding: 6px 12px;
+  /* Fixed height so the plain Input header and the taller tabbed Output header
+     line up; otherwise the two panes' text starts a few px apart. */
+  min-height: 32px;
+  padding: 0 12px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
@@ -252,10 +255,85 @@ textarea {
 
 textarea::placeholder { color: var(--clr-border); }
 
-#output {
+/* Output views: one Output pane, four tabs (Text / Markdown / Rendered / HTML).
+   Only the active view is shown; all share the output surface colours. */
+.output-view {
   background: var(--clr-out-bg);
   color: var(--clr-out-txt);
 }
+.output-view[hidden] { display: none; }
+
+#output-rendered {
+  flex: 1;
+  overflow: auto;
+  padding: 16px;
+  font-family: -apple-system, "SF Pro Text", system-ui, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.output-tabs { display: flex; gap: 4px; align-items: center; }
+
+.tab {
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  background: transparent;
+  color: var(--clr-dim);
+  border: 1px solid transparent;
+  border-radius: 5px;
+}
+.tab:hover { color: var(--clr-text); background: var(--clr-sec); }
+.tab.active { color: var(--clr-mint-txt); background: var(--clr-mint); }
+
+/* Rendered markdown, themed from the mint tokens so it reads in both themes. */
+.md-body > :first-child { margin-top: 0; }
+.md-body h1, .md-body h2, .md-body h3,
+.md-body h4, .md-body h5, .md-body h6 {
+  color: var(--clr-text);
+  line-height: 1.25;
+  margin: 1em 0 0.4em;
+}
+.md-body h1 { font-size: 1.6em; }
+.md-body h2 { font-size: 1.35em; }
+.md-body h3 { font-size: 1.15em; }
+.md-body p { margin: 0.5em 0; }
+.md-body ul, .md-body ol { margin: 0.5em 0; padding-left: 1.5em; }
+.md-body li { margin: 0.2em 0; }
+.md-body a { color: var(--clr-accent-text); }
+.md-body code {
+  font-family: ui-monospace, "SF Mono", "JetBrains Mono", Consolas, monospace;
+  font-size: 0.9em;
+  background: var(--clr-surface);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.md-body pre {
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: 6px;
+  padding: 12px;
+  overflow: auto;
+  margin: 0.6em 0;
+}
+.md-body pre code { background: none; padding: 0; font-size: 0.85em; }
+.md-body blockquote {
+  border-left: 3px solid var(--clr-mint);
+  margin: 0.6em 0;
+  padding: 0.2em 0 0.2em 12px;
+  color: var(--clr-dim);
+}
+.md-body table { border-collapse: collapse; margin: 0.6em 0; }
+.md-body th, .md-body td {
+  border: 1px solid var(--clr-border);
+  padding: 4px 10px;
+  text-align: left;
+}
+.md-body th { background: var(--clr-surface); font-weight: 700; }
+.md-body hr { border: none; border-top: 1px solid var(--clr-border); margin: 1em 0; }
+.md-body img { max-width: 100%; }
 
 #tooltip {
   display: none;

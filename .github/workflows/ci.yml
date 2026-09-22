@@ -25,6 +25,12 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      # check.sh treats a missing component as a failure rather than a skip, so
+      # these are installed explicitly instead of relying on what the runner
+      # image happens to ship.
+      - name: Rust components
+        run: rustup component add rustfmt clippy
+
       - name: Cache cargo
         uses: actions/cache@v4
         with:

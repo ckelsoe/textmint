@@ -3,8 +3,10 @@
 # Local CI for Textmint. The pre-commit hook, the pre-push hook and GitHub
 # Actions all call this same script, so a green run here is a green run there.
 #
-#   scripts/check.sh          full run (includes cargo check)
-#   scripts/check.sh --fast   skip cargo check, for the pre-commit hook
+#   scripts/check.sh          full run (includes cargo check and clippy)
+#   scripts/check.sh --fast   skip the compiling Rust checks, for the pre-commit
+#                             hook. cargo fmt still runs: it does not compile
+#                             anything and costs well under a second.
 #
 # Install the hooks once with: git config core.hooksPath .githooks
 #
@@ -35,26 +37,63 @@ HAVE_NODE=0
 command -v node >/dev/null 2>&1 && HAVE_NODE=1
 [ "$HAVE_NODE" = "1" ] || fail "node not found on PATH (checks 2 to 4 need it)"
 
-# 1. src/main.js is ASCII only. Every non-ASCII codepoint must be a \u escape,
-#    or the Unicode-stripping regexes can be silently corrupted by an editor.
-if need_file src/main.js; then
-  ASCII_HITS=$(LC_ALL=C grep -n "$(printf '[^ -~\t]')" src/main.js)
-  if [ -n "$ASCII_HITS" ]; then
-    fail "ASCII invariant: non-ASCII codepoints in src/main.js"
-    printf '%s\n' "$ASCII_HITS" | sed 's/^/        /'
+# 1. Every JS file we own is ASCII only: each non-ASCII codepoint must be a \u
+#    escape, or an editor can silently corrupt it. pipeline.js holds the
+#    regexes, and the tests hold the invisible characters those regexes target,
+#    so a mangled test would pass vacuously. Globbed rather than listed so a new
+#    file is covered the moment it exists, including scripts/regen-snapshots.js,
+#    which builds the snapshots and so must not mangle them. The glob is used
+#    directly rather than
+#    through $(ls ...): word splitting would turn a path containing a space into
+#    two entries and report a miss instead of a result. need_file skips the
+#    unexpanded pattern if a directory is ever empty.
+for f in src/*.js test/*.js scripts/*.js bin/*.js; do
+  if need_file "$f"; then
+    ASCII_HITS=$(LC_ALL=C grep -n "$(printf '[^ -~\t]')" "$f")
+    if [ -n "$ASCII_HITS" ]; then
+      fail "ASCII invariant: non-ASCII codepoints in $f"
+      printf '%s\n' "$ASCII_HITS" | sed 's/^/        /'
+    else
+      pass "ASCII invariant ($f)"
+    fi
+  fi
+done
+
+# 2. Syntax. A parse error here would take the app down on launch, and it is
+#    the cheapest gate to run, so it comes before the suite at 2b. Globbed over
+#    src/ so a new module (src/bridge.js and any later one) is checked the
+#    moment it exists, not only the two files that happened to exist first.
+if [ "$HAVE_NODE" = "1" ]; then
+  for f in src/*.js bin/*.js; do
+    [ -f "$f" ] || continue
+    if NODE_ERR=$(node --check "$f" 2>&1); then
+      pass "node --check $f"
+    else
+      fail "node --check $f"
+      printf '%s\n' "$NODE_ERR" | sed 's/^/        /'
+    fi
+  done
+fi
+
+# 2a. Build the render binary so the CLI html test at 2b exercises it instead of
+#     skipping. Skipped under --fast (the pre-commit hook), which stays compile-free.
+if [ "$FAST" != "1" ] && command -v cargo >/dev/null 2>&1; then
+  if RENDER_ERR=$(cd src-tauri && cargo build --quiet --bin textmint-render 2>&1); then
+    pass "cargo build --bin textmint-render"
   else
-    pass "ASCII invariant (src/main.js)"
+    fail "cargo build --bin textmint-render"
+    printf '%s\n' "$RENDER_ERR" | sed 's/^/        /'
   fi
 fi
 
-# 2. Syntax. There is no test framework, so this is the only automated gate
-#    on the cleaning pipeline.
-if [ "$HAVE_NODE" = "1" ] && [ -f src/main.js ]; then
-  if NODE_ERR=$(node --check src/main.js 2>&1); then
-    pass "node --check src/main.js"
+# 2b. The pipeline and CLI test suites. This is the only thing that exercises the
+#     cleaning passes; nothing else catches a regex that silently corrupts text.
+if [ "$HAVE_NODE" = "1" ] && [ -d test ]; then
+  if TEST_OUT=$(node --test test/ 2>&1); then
+    pass "node --test ($(printf '%s' "$TEST_OUT" | sed -n 's/^# pass \([0-9]*\)/\1/p;s/^\xe2\x84\xb9 pass \([0-9]*\)/\1/p' | head -1) passing)"
   else
-    fail "node --check src/main.js"
-    printf '%s\n' "$NODE_ERR" | sed 's/^/        /'
+    fail "node --test"
+    printf '%s\n' "$TEST_OUT" | grep -E "^(not ok|  *Error|✖)" | head -12 | sed 's/^/        /'
   fi
 fi
 
@@ -113,17 +152,64 @@ if need_file src/styles.css; then
 fi
 
 # 6. Rust. Runs from src-tauri because there is no workspace manifest at the root.
-if [ "$FAST" = "1" ]; then
-  skip "cargo check (--fast)"
-elif ! command -v cargo >/dev/null 2>&1; then
+#
+# A missing component is a failure, not a skip, with the rustup line to fix it:
+# this script is the one definition of valid, so a check that quietly does not
+# run is worse than one that is red. clippy and cargo check do not invalidate
+# each other's target dir, so running both costs under a second warm.
+HAVE_CARGO=0
+if ! command -v cargo >/dev/null 2>&1; then
   fail "cargo not found on PATH"
-elif ! need_file src-tauri/Cargo.toml; then
+elif need_file src-tauri/Cargo.toml; then
+  HAVE_CARGO=1
+fi
+
+# 6a. Formatting. No compilation, so it runs even under --fast.
+if [ "$HAVE_CARGO" = "1" ]; then
+  if ! cargo fmt --version >/dev/null 2>&1; then
+    fail "rustfmt not installed (rustup component add rustfmt)"
+  elif FMT_ERR=$(cd src-tauri && cargo fmt --check 2>&1); then
+    pass "cargo fmt --check"
+  else
+    fail "cargo fmt --check (run: cd src-tauri && cargo fmt)"
+    printf '%s\n' "$FMT_ERR" | sed 's/^/        /'
+  fi
+fi
+
+# 6b. Type check and lints. These compile, so --fast skips them.
+if [ "$HAVE_CARGO" != "1" ]; then
   :
-elif CARGO_ERR=$(cd src-tauri && cargo check --quiet 2>&1); then
-  pass "cargo check"
+elif [ "$FAST" = "1" ]; then
+  skip "cargo check and clippy (--fast)"
 else
-  fail "cargo check"
-  printf '%s\n' "$CARGO_ERR" | sed 's/^/        /'
+  if CARGO_ERR=$(cd src-tauri && cargo check --quiet 2>&1); then
+    pass "cargo check"
+  else
+    fail "cargo check"
+    printf '%s\n' "$CARGO_ERR" | sed 's/^/        /'
+  fi
+
+  # The Rust unit tests. Added with the Phase 1 core: they pin the four patterns
+  # the regex crate cannot take, and prove the backtrack limit fires instead of
+  # hanging. Untested Rust would rot exactly as fast as untested JS did.
+  if CARGO_TEST_ERR=$(cd src-tauri && cargo test --quiet 2>&1); then
+    pass "cargo test"
+  else
+    fail "cargo test"
+    printf '%s\n' "$CARGO_TEST_ERR" | sed 's/^/        /'
+  fi
+
+  # --all-targets so tests and benches are linted too, not just the binary.
+  # -D warnings makes a lint fatal, which is the point; it also means a
+  # toolchain bump that adds a lint can turn this red on unchanged code.
+  if ! cargo clippy --version >/dev/null 2>&1; then
+    fail "clippy not installed (rustup component add clippy)"
+  elif CLIPPY_ERR=$(cd src-tauri && cargo clippy --all-targets --quiet -- -D warnings 2>&1); then
+    pass "cargo clippy"
+  else
+    fail "cargo clippy"
+    printf '%s\n' "$CLIPPY_ERR" | sed 's/^/        /'
+  fi
 fi
 
 echo

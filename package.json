@@ -1,14 +1,18 @@
 {
   "name": "textmint",
   "private": true,
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Clean & convert AI text, entirely on-device.",
   "author": "Charles Kelsoe",
   "type": "module",
+  "bin": {
+    "textmint": "bin/textmint.js"
+  },
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build": "tauri build"
+    "build": "tauri build",
+    "test": "node --test test/"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.5"
