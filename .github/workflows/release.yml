@@ -168,6 +168,78 @@ jobs:
   # is) still requires glib ^0.18. Revisit when webkit2gtk moves to the
   # gtk 0.19 / glib 0.22 stack and Tauri follows.
 
+  virustotal:
+    name: virustotal scan
+    needs: [macos, windows]
+    # Informational only: continue-on-error so a VirusTotal hiccup never blocks a
+    # release. The detection ratio per installer lands in the job summary; a
+    # brand-new signed binary often shows a few heuristic false positives that
+    # clear as it is seen more, so read the report, do not gate on it.
+    if: github.repository == 'ckelsoe/textmint'
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+
+      - name: Scan the installers on VirusTotal
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: |
+          if [ -z "$VT_API_KEY" ]; then
+            echo "::warning::VT_API_KEY is unset; skipping the VirusTotal scan"
+            exit 0
+          fi
+          echo "## VirusTotal" >> "$GITHUB_STEP_SUMMARY"
+          found=0
+          while IFS= read -r f; do
+            found=1
+            name=$(basename "$f")
+            echo "::group::VirusTotal: $name"
+            size=$(stat -c%s "$f")
+            # Files over 32 MB need a one-time large-file upload URL.
+            if [ "$size" -gt 33554432 ]; then
+              endpoint=$(curl -sS -H "x-apikey: $VT_API_KEY" \
+                https://www.virustotal.com/api/v3/files/upload_url 2>/dev/null | jq -r '.data // empty')
+              [ -n "$endpoint" ] || endpoint="https://www.virustotal.com/api/v3/files"
+            else
+              endpoint="https://www.virustotal.com/api/v3/files"
+            fi
+            id=$(curl -sS -X POST "$endpoint" -H "x-apikey: $VT_API_KEY" \
+              --form file=@"$f" 2>/dev/null | jq -r '.data.id // empty')
+            sha=$(sha256sum "$f" | cut -d' ' -f1)
+            link="https://www.virustotal.com/gui/file/$sha"
+            if [ -z "$id" ]; then
+              echo "::warning::$name: upload to VirusTotal failed"
+              echo "- \`$name\`: upload failed" >> "$GITHUB_STEP_SUMMARY"
+              echo "::endgroup::"; continue
+            fi
+            status=""
+            for _ in $(seq 1 30); do
+              a=$(curl -sS -H "x-apikey: $VT_API_KEY" \
+                "https://www.virustotal.com/api/v3/analyses/$id" 2>/dev/null || echo '{}')
+              status=$(echo "$a" | jq -r '.data.attributes.status // empty')
+              [ "$status" = "completed" ] && break
+              sleep 20
+            done
+            if [ "$status" != "completed" ]; then
+              echo "::warning::$name: analysis did not finish in time"
+              echo "- \`$name\`: analysis timed out - [report]($link)" >> "$GITHUB_STEP_SUMMARY"
+              echo "::endgroup::"; continue
+            fi
+            mal=$(echo "$a" | jq -r '.data.attributes.stats.malicious // 0')
+            susp=$(echo "$a" | jq -r '.data.attributes.stats.suspicious // 0')
+            harmless=$(echo "$a" | jq -r '.data.attributes.stats.harmless // 0')
+            undet=$(echo "$a" | jq -r '.data.attributes.stats.undetected // 0')
+            total=$((mal + susp + harmless + undet))
+            echo "$name: $mal/$total malicious, $susp suspicious"
+            echo "- \`$name\`: **$mal/$total** malicious, $susp suspicious - [report]($link)" >> "$GITHUB_STEP_SUMMARY"
+            [ "$mal" -gt 0 ] && echo "::warning::$name flagged by $mal engine(s); review $link"
+            echo "::endgroup::"
+          done < <(find dist -type f \( -name '*.exe' -o -name '*.msi' -o -name '*.dmg' \) | sort)
+          [ "$found" = "1" ] || echo "::warning::no installers found to scan"
+
   release:
     name: draft release
     needs: [macos, windows]
