@@ -8,6 +8,14 @@
     "clipboard-manager:allow-write-text",
     "clipboard-manager:allow-write-html",
     "updater:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [
+        { "url": "https://github.com/ckelsoe/textmint" },
+        { "url": "https://github.com/ckelsoe/textmint/issues/new" },
+        { "url": "https://github.com/ckelsoe/textmint/releases/latest" }
+      ]
+    }
   ]
 }

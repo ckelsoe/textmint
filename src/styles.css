@@ -452,3 +452,20 @@ textarea::placeholder { color: var(--clr-border); }
   cursor: pointer;
 }
 .about-privacy { font-size: 11px; color: var(--clr-muted); line-height: 1.5; margin-top: 10px; }
+.about-links {
+  display: flex;
+  gap: 18px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--clr-border-sub);
+}
+.link-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 13px;
+  color: var(--clr-accent-text);
+  cursor: pointer;
+}
+.link-btn:hover { color: var(--clr-mint); text-decoration: underline; }

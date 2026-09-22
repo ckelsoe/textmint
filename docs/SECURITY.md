@@ -14,6 +14,11 @@ toggle, and the About box states plainly what the check sends. When a user insta
 the download is verified against the updater public key baked into the app before it is applied.
 See `docs/plans/self-update.md`.
 
+The About box also has links to the GitHub repo and the new-issue page. Clicking one launches
+the default browser at that page through the opener plugin, which is scoped in
+`capabilities/default.json` to those repo URLs alone. That is a user-initiated browser launch,
+not the app transmitting anything.
+
 ## Dependency advisories
 
 ### glib `VariantStrIter` unsoundness — GHSA-wrw7-89jp-8q8g (dismissed 2026-08-24)

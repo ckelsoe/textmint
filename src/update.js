@@ -140,7 +140,7 @@ function renderAbout() {
     box.appendChild(actionButton("Update now", doAutoUpdate, true));
   } else {
     box.appendChild(line("This install updates from the download page."));
-    box.appendChild(actionButton("Copy download link", copyLink));
+    box.appendChild(actionButton("Open download page", downloadAction));
   }
 }
 
@@ -157,6 +157,23 @@ function actionButton(label, fn, primary) {
   b.className = primary ? "about-btn primary" : "about-btn";
   b.addEventListener("click", fn);
   return b;
+}
+
+// Open a URL in the default browser through the opener plugin, falling back to
+// window.open in a plain browser during dev. The plugin only permits the repo
+// URLs listed in capabilities/default.json.
+async function openExternal(url) {
+  const t = tauri();
+  try {
+    if (t && t.opener && t.opener.openUrl) { await t.opener.openUrl(url); return true; }
+  } catch (e) {}
+  try { window.open(url, "_blank"); return true; } catch (e) {}
+  return false;
+}
+
+// The MSI's update path: open the releases page, or copy the link if that fails.
+async function downloadAction() {
+  if (!(await openExternal(RELEASES_URL))) copyLink();
 }
 
 async function copyLink() {
@@ -200,7 +217,7 @@ async function doAutoUpdate() {
     if (box) {
       box.innerHTML = "";
       box.appendChild(line("Update failed. Try the download page instead."));
-      box.appendChild(actionButton("Copy download link", copyLink));
+      box.appendChild(actionButton("Open download page", downloadAction));
     }
   }
 }
@@ -215,6 +232,10 @@ export function initUpdate() {
 
   const about = el("btn-about");
   if (about) about.addEventListener("click", openAbout);
+
+  document.querySelectorAll(".about-links [data-url]").forEach((a) => {
+    a.addEventListener("click", () => openExternal(a.dataset.url));
+  });
 
   const view = el("update-banner-view");
   if (view) view.addEventListener("click", () => { hideBanner(); openAbout(); });

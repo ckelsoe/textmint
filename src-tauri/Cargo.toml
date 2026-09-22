@@ -1,6 +1,6 @@
 [package]
 name = "textmint"
-version = "0.4.0"
+version = "0.4.1"
 description = "Textmint - clean & convert AI text, entirely on-device"
 authors = ["Charles Kelsoe"]
 edition = "2021"
@@ -34,4 +34,7 @@ tauri-plugin-clipboard-manager = "2"
 # used to relaunch after an update installs. See docs/plans/self-update.md.
 tauri-plugin-process = "2"
 tauri-plugin-updater = "2"
+# Opens external URLs in the default browser: the About box's repo and issue
+# links, and the MSI download page. Scoped to the repo in capabilities.
+tauri-plugin-opener = "2"
 
