@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Textmint",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "identifier": "dev.kelsoe.textmint",
   "build": {
     "frontendDist": "../src"
@@ -22,9 +22,18 @@
       "csp": "default-src 'self'; img-src 'self' data:; media-src 'self' data:; font-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src 'none'; frame-src 'none'; base-uri 'self'; form-action 'none'"
     }
   },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/ckelsoe/textmint/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEI5NjFEM0M3RkE4NzkxODEKUldTQmtZZjZ4OU5odWNlKytPUW1QckxNVHFwajQ2NkJ1SlhzTnpzaHlraXZ6aHFRd3pXL3lxMTkK"
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "category": "Productivity",
     "shortDescription": "Clean & convert AI text, on-device.",
     "longDescription": "Textmint cleans AI output (invisible Unicode, terminal noise, markdown tells) and converts between formats. Everything runs locally - text never leaves your machine.",
@@ -34,6 +43,11 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
   }
 }

@@ -69,6 +69,12 @@
       </div>
     </header>
 
+    <div id="update-banner" class="update-banner" role="status" hidden>
+      <span id="update-banner-msg"></span>
+      <button type="button" id="update-banner-view" data-tip="Open the About box to update or get the download link.">View update</button>
+      <button type="button" id="update-banner-dismiss" class="banner-dismiss" aria-label="Dismiss update notice" data-tip="Hide this until the next launch.">&#215;</button>
+    </div>
+
     <div class="panes">
       <div class="pane">
         <div class="pane-label">Input <span>paste AI output here</span></div>
@@ -95,8 +101,24 @@
       <span id="stat-in">In: 0 chars</span>
       <span id="stat-out">Out: 0 chars</span>
       <span id="stat-lines">0 lines</span>
-      <span class="footer-credit">Created by Charles Kelsoe &nbsp;<span class="footer-version">v0.3</span></span>
+      <span class="footer-credit">Created by Charles Kelsoe &nbsp;<button type="button" id="btn-about" data-tip="About Textmint, and check for updates." class="footer-version">v0.4</button></span>
       <span class="footer-shortcuts">Cmd+Enter to clean &nbsp; Cmd+Shift+C to copy</span>
+    </div>
+
+    <div id="about-modal" class="modal" hidden>
+      <div class="modal-overlay" data-close="1"></div>
+      <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="about-title">
+        <button type="button" id="about-close" class="modal-close" aria-label="Close" data-close="1">&#215;</button>
+        <h2 id="about-title">Textmint</h2>
+        <p class="about-tag">Clean and convert AI text, on-device. Your text never leaves your machine.</p>
+        <p class="about-version">Version <span id="about-version"></span></p>
+        <div id="about-update" class="about-update"></div>
+        <label class="about-check">
+          <input type="checkbox" id="opt-update-check" checked />
+          Check for updates when Textmint starts
+        </label>
+        <p class="about-privacy">The update check contacts GitHub to compare version numbers. It sends no document text.</p>
+      </div>
     </div>
   </body>
 </html>

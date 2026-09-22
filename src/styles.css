@@ -361,3 +361,94 @@ textarea::placeholder { color: var(--clr-border); }
   gap: 16px;
   align-items: center;
 }
+
+/* The footer version is a button that opens the About box. Reset it from the
+   global button style back to inline status-bar text. */
+.footer-version {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--clr-text);
+  cursor: pointer;
+}
+.footer-version:hover { color: var(--clr-mint); text-decoration: underline; }
+
+/* Update banner: a slim bar between the header and the panes. */
+.update-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 20px;
+  background: var(--clr-surface);
+  border-bottom: 1px solid var(--clr-border);
+  border-left: 3px solid var(--clr-mint);
+  font-size: 13px;
+  color: var(--clr-text);
+}
+.update-banner #update-banner-msg { flex: 1; }
+#update-banner-view { background: var(--clr-mint); color: var(--clr-mint-txt); }
+#update-banner-view:hover { background: var(--clr-mint-h); }
+.banner-dismiss {
+  background: transparent;
+  border: 1px solid var(--clr-border);
+  color: var(--clr-dim);
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border-radius: 6px;
+  line-height: 1;
+}
+.banner-dismiss:hover { border-color: var(--clr-mint); color: var(--clr-mint); }
+
+/* About modal. */
+.modal { position: fixed; inset: 0; z-index: 10000; }
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+}
+.modal-card {
+  position: relative;
+  margin: 12vh auto 0;
+  width: min(360px, calc(100vw - 32px));
+  background: var(--clr-surface);
+  border: 1px solid var(--clr-border);
+  border-radius: 12px;
+  padding: 22px 22px 18px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+.modal-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: transparent;
+  border: none;
+  color: var(--clr-dim);
+  font-size: 20px;
+  line-height: 1;
+  padding: 4px 8px;
+}
+.modal-close:hover { color: var(--clr-mint); }
+.modal-card h2 { font-size: 20px; margin-bottom: 4px; }
+.about-tag { color: var(--clr-dim); font-size: 13px; line-height: 1.5; margin-bottom: 12px; }
+.about-version { font-size: 13px; color: var(--clr-text); margin-bottom: 14px; }
+.about-update {
+  border-top: 1px solid var(--clr-border-sub);
+  padding-top: 14px;
+  margin-bottom: 14px;
+}
+.about-line { font-size: 13px; color: var(--clr-text); margin-bottom: 10px; line-height: 1.5; }
+.about-btn { background: var(--clr-sec); color: var(--clr-text); }
+.about-btn:hover { background: var(--clr-sec-h); }
+.about-btn.primary { background: var(--clr-mint); color: var(--clr-mint-txt); }
+.about-btn.primary:hover { background: var(--clr-mint-h); }
+.about-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--clr-text);
+  cursor: pointer;
+}
+.about-privacy { font-size: 11px; color: var(--clr-muted); line-height: 1.5; margin-top: 10px; }

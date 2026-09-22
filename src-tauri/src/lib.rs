@@ -13,6 +13,11 @@ pub mod engine;
 // opt-in via TEXTMINT_OPEN. See src-tauri/src/startup.rs.
 mod startup;
 
+// Reports whether this install can self-update ("auto") or should only link to
+// the download ("download"). Drives the About box's update control. See
+// src-tauri/src/update.rs and docs/plans/self-update.md.
+mod update;
+
 // Dev-only automation bridge. Compiled out of release builds entirely, and
 // inert even in a debug build unless launched with TEXTMINT_BRIDGE set. See
 // src-tauri/src/bridge.rs and docs/AUTOMATION.md.
@@ -23,16 +28,25 @@ mod bridge;
 pub fn run() {
     let builder = tauri::Builder::default().plugin(tauri_plugin_clipboard_manager::init());
 
+    // The updater and process plugins power in-app updates and the relaunch after
+    // one installs. Desktop only: the updater has no mobile support, and this app
+    // ships desktop targets exclusively.
+    #[cfg(desktop)]
+    let builder = builder
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init());
+
     // clean_text is registered in Phase 1 so the invoke path is live before any
     // pass depends on it; the frontend does not call it yet. render_markdown is
     // the live converter behind the Preview and Copy HTML. startup_open feeds
-    // the CLI's `open` handoff. The bridge commands are added only in a debug
-    // build.
+    // the CLI's `open` handoff. update_channel tells the UI whether this install
+    // may self-update. The bridge commands are added only in a debug build.
     #[cfg(debug_assertions)]
     let builder = builder.invoke_handler(tauri::generate_handler![
         textmint_core::clean_text,
         engine::render_markdown,
         startup::startup_open,
+        update::update_channel,
         bridge::bridge_status,
         bridge::bridge_poll,
         bridge::bridge_result
@@ -41,7 +55,8 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         textmint_core::clean_text,
         engine::render_markdown,
-        startup::startup_open
+        startup::startup_open,
+        update::update_channel
     ]);
 
     builder

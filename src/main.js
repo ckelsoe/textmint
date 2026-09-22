@@ -3,6 +3,7 @@
 // so the cleaning regexes can never be corrupted by copy/paste.
 import { clean, cleanToMarkdown } from "./pipeline.js";
 import { initBridge } from "./bridge.js";
+import { initUpdate } from "./update.js";
 import { CHECK_IDS as PREF_CHECKS } from "./controls.js";
 
 (function () {
@@ -272,6 +273,11 @@ import { CHECK_IDS as PREF_CHECKS } from "./controls.js";
   loadPrefs();
   try { applyTheme(localStorage.getItem("textmint-theme") === "light"); } catch (e) {}
   try { showView(localStorage.getItem(TAB_KEY) || "text"); } catch (e) { showView("text"); }
+
+  // About box and in-app updates. Self-contained (src/update.js); the About box
+  // works even with no Tauri, and the update check no-ops until a real build with
+  // a signing key is installed.
+  initUpdate();
 
   // CLI handoff: `textmint open <file>` launches the app with TEXTMINT_OPEN set;
   // load that text into the input once, on start, and render it.

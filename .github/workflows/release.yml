@@ -56,12 +56,25 @@ jobs:
       APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
       APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
       APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+      # The updater's own minisign key, separate from the Apple cert. With
+      # createUpdaterArtifacts on, `tauri build` needs it to sign the .app.tar.gz.
+      TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+      TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+
+      # createUpdaterArtifacts is on, so a build without the updater key fails at
+      # bundling, minutes in. Fail fast with the fix instead.
+      - name: Updater signing key must be set
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Generate it with 'tauri signer generate' and add TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD to this repo's secrets, and the public key to tauri.conf.json. See docs/plans/self-update.md." >&2
+            exit 1
+          fi
 
       - uses: actions/cache@v4
         with:
@@ -97,7 +110,12 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: macos-aarch64
-          path: src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+          # The DMG is the first-install download; the .app.tar.gz and its .sig
+          # are what the updater pulls. All three go on the release.
+          path: |
+            src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz
+            src-tauri/target/aarch64-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
           if-no-files-found: error
 
   windows:
@@ -114,6 +132,18 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      # createUpdaterArtifacts is on, so a build without the updater key fails at
+      # bundling. Fail fast with the fix instead.
+      - name: Updater signing key must be set
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY" ]; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY is not set. Generate it with 'tauri signer generate' and add TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD to this repo's secrets, and the public key to tauri.conf.json. See docs/plans/self-update.md." >&2
+            exit 1
+          fi
+
       - uses: actions/cache@v4
         with:
           path: |
@@ -124,8 +154,13 @@ jobs:
 
       - run: npm ci
 
-      - name: Build (unsigned)
+      # "Unsigned" means Authenticode: Azure signs the .exe/.msi in the next step.
+      # The updater's minisign key is separate and signs the .sig files here.
+      - name: Build (Authenticode-unsigned)
         uses: tauri-apps/tauri-action@action-v1.0.0
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
       # Signing is a separate step because the installers must exist first.
       - name: Is Azure signing configured?
@@ -155,11 +190,39 @@ jobs:
           files-folder-filter: exe,msi
           files-folder-recurse: true
 
+      # Azure Authenticode-signs the .exe after `tauri build` already wrote the
+      # updater .sig, so the .sig now covers the pre-signing bytes and the updater
+      # would reject the download as tampered. Regenerate the signature over the
+      # signed installer. Only when Azure actually signed; an unsigned build's
+      # original .sig already matches.
+      - name: Re-sign the updater signature over the signed installer
+        if: steps.azure.outputs.configured == 'true'
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          exe=$(find src-tauri/target/release/bundle/nsis -name '*-setup.exe' | head -1)
+          if [ -z "$exe" ]; then
+            echo "::error::no NSIS -setup.exe found to re-sign" >&2
+            exit 1
+          fi
+          # --app-version binds the version into the signature's trusted comment,
+          # which `tauri build` does automatically; the macOS .sig has it, so the
+          # hand re-sign must set it too or the two platforms disagree.
+          version=$(node -p "require('./package.json').version")
+          npm run tauri -- signer sign --app-version "$version" "$exe"
+          echo "re-signed $(basename "$exe").sig (v$version) over the Authenticode-signed installer"
+
       - uses: actions/upload-artifact@v4
         with:
           name: windows
+          # The NSIS -setup.exe and its .sig feed the updater; the MSI ships for
+          # hand or IT install and is not in the manifest.
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.exe.sig
             src-tauri/target/release/bundle/msi/*.msi
           if-no-files-found: error
 
@@ -250,6 +313,41 @@ jobs:
         with:
           path: dist
 
+      # The updater reads latest.json from the release. The signature fields are
+      # the contents of the .sig files, and the URLs are where the assets land
+      # once the release is published. macOS updates from the .app.tar.gz, Windows
+      # from the NSIS -setup.exe; the MSI is deliberately absent.
+      - name: Build the updater manifest (latest.json)
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          BASE="https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}"
+
+          mac_tar=$(find dist -name '*.app.tar.gz' ! -name '*.sig' | head -1)
+          mac_sig=$(find dist -name '*.app.tar.gz.sig' | head -1)
+          win_exe=$(find dist -name '*-setup.exe' ! -name '*.sig' | head -1)
+          win_sig=$(find dist -name '*-setup.exe.sig' | head -1)
+
+          for f in "$mac_tar" "$mac_sig" "$win_exe" "$win_sig"; do
+            if [ -z "$f" ] || [ ! -f "$f" ]; then
+              echo "::error::missing updater artifact (mac_tar=$mac_tar mac_sig=$mac_sig win_exe=$win_exe win_sig=$win_sig)" >&2
+              exit 1
+            fi
+          done
+
+          jq -n \
+            --arg version "$VERSION" \
+            --arg notes "Textmint $VERSION" \
+            --arg date "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg macsig "$(cat "$mac_sig")" \
+            --arg macurl "$BASE/$(basename "$mac_tar")" \
+            --arg winsig "$(cat "$win_sig")" \
+            --arg winurl "$BASE/$(basename "$win_exe")" \
+            '{version:$version, notes:$notes, pub_date:$date, platforms:{"darwin-aarch64":{signature:$macsig,url:$macurl},"windows-x86_64":{signature:$winsig,url:$winurl}}}' \
+            > latest.json
+          echo "latest.json:"; cat latest.json
+
       - name: Create the draft release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -259,5 +357,6 @@ jobs:
             --repo "$GITHUB_REPOSITORY" \
             --draft \
             --title "${GITHUB_REF#refs/tags/}" \
-            --notes "Signed installers for macOS (Apple Silicon) and Windows. Verify on clean machines before publishing." \
+            --notes "Signed installers for macOS (Apple Silicon) and Windows. The macOS DMG and the Windows -setup.exe self-update through the app; the MSI is a signed download for hand or IT install and is not in the update manifest. Publishing this release (clearing the draft) is what arms the in-app updater for every installed copy, so verify on a clean machine first." \
+            latest.json \
             $(find dist -type f | tr '\n' ' ')

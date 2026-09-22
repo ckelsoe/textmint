@@ -2,6 +2,18 @@
 
 Record of security advisories and how they were handled.
 
+## Network activity
+
+Textmint's promise is that document text never leaves the machine, and it does not. The one
+outbound call the app makes is the update check: on launch (unless turned off in the About box)
+it fetches `releases/latest/download/latest.json` from GitHub and compares version numbers. That
+request carries no document text and no identifiers beyond a normal HTTPS request to GitHub. The
+check runs in the Rust process through the updater plugin, not in the webview, so it is not
+governed by the page CSP. It can be turned off with the "Check for updates when Textmint starts"
+toggle, and the About box states plainly what the check sends. When a user installs an update,
+the download is verified against the updater public key baked into the app before it is applied.
+See `docs/plans/self-update.md`.
+
 ## Dependency advisories
 
 ### glib `VariantStrIter` unsoundness — GHSA-wrw7-89jp-8q8g (dismissed 2026-08-24)
