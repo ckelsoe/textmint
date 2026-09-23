@@ -5,12 +5,18 @@
 //
 // - "auto": the frontend may run the in-app updater (check, download, install,
 //   relaunch). macOS and the Windows NSIS per-user install.
-// - "download": show the banner and an About box that links to the releases page,
-//   never the in-app installer. The Windows per-machine MSI.
+// - "download": show the status-bar notice and an About box that links to the
+//   releases page, never the in-app installer. The Windows per-machine MSI.
+// - "move": macOS running from a read-only location, so the updater cannot replace
+//   the bundle. Either App Translocation (a quarantined app that was never moved
+//   with Finder runs from a read-only copy under /private/var/folders/.../
+//   AppTranslocation/) or the app opened straight from the mounted DMG. The UI
+//   asks the user to move it to Applications and reopen instead of failing.
 
-/// Returns "auto" or "download". macOS always self-updates. On Windows the choice
-/// turns on where the running executable lives: a per-machine MSI lands under
-/// Program Files, the per-user NSIS build does not.
+/// Returns "auto", "download" or "move". macOS self-updates unless it runs from a
+/// read-only location. On Windows the choice turns on where the running executable
+/// lives: a per-machine MSI lands under Program Files, the per-user NSIS build does
+/// not.
 #[tauri::command]
 pub fn update_channel() -> String {
     channel().to_string()
@@ -18,7 +24,17 @@ pub fn update_channel() -> String {
 
 #[cfg(target_os = "macos")]
 fn channel() -> &'static str {
-    "auto"
+    match std::env::current_exe() {
+        Ok(p) if runs_read_only(&p.to_string_lossy()) => "move",
+        _ => "auto",
+    }
+}
+
+// Pure, so it is testable. True when the executable path is one the updater cannot
+// write over: a translocated copy, or the app still inside a mounted volume.
+#[cfg(any(target_os = "macos", test))]
+fn runs_read_only(exe: &str) -> bool {
+    exe.contains("/AppTranslocation/") || exe.starts_with("/Volumes/")
 }
 
 #[cfg(target_os = "windows")]
@@ -68,7 +84,28 @@ fn path_is_per_machine(exe: &str, roots: &[String]) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::path_is_per_machine;
+    use super::{path_is_per_machine, runs_read_only};
+
+    #[test]
+    fn translocated_app_is_read_only() {
+        assert!(runs_read_only(
+            "/private/var/folders/mh/x/T/AppTranslocation/C9A1/d/Textmint.app/Contents/MacOS/textmint"
+        ));
+    }
+
+    #[test]
+    fn app_on_mounted_dmg_is_read_only() {
+        assert!(runs_read_only(
+            "/Volumes/Textmint/Textmint.app/Contents/MacOS/textmint"
+        ));
+    }
+
+    #[test]
+    fn app_in_applications_can_update() {
+        assert!(!runs_read_only(
+            "/Applications/Textmint.app/Contents/MacOS/textmint"
+        ));
+    }
 
     #[test]
     fn under_program_files_is_per_machine() {

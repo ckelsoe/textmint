@@ -7,6 +7,9 @@
 //   - "download" (the Windows per-machine MSI): the About box links to the
 //                releases page instead, so it never drops a second copy beside a
 //                managed install.
+//   - "move"     (macOS running from a read-only place: App Translocation or the
+//                mounted DMG): the updater cannot replace the bundle, so the UI
+//                asks the user to move Textmint to Applications and reopen it.
 // Either way, once a check finds a newer version a mint pill appears in the
 // status bar next to the version. Clicking it asks "Update and relaunch?" on the
 // auto channel, or opens the releases page on the download channel. See
@@ -18,6 +21,7 @@
 
 const RELEASES_URL = "https://github.com/ckelsoe/textmint/releases/latest";
 const CHECK_PREF = "textmint-update-check";
+const MOVE_TEXT = "Move Textmint to Applications in Finder, then reopen it to update.";
 
 // null = not checked yet, "none" = up to date, "error" = check failed,
 // otherwise the Update object returned by the plugin.
@@ -25,7 +29,7 @@ let state = null;
 let checking = false;
 let channelKind = "download"; // safe default: never self-install unless told to
 // What the status-bar pill shows: "idle" (the offer), "confirm", "busy"
-// (download and install in progress), "failed", or "copied".
+// (download and install in progress), "failed", "copied", or "move".
 let pill = "idle";
 let busyText = "";
 let installing = false;
@@ -46,7 +50,7 @@ async function appVersion() {
     const t = tauri();
     if (t && t.app && t.app.getVersion) return await t.app.getVersion();
   } catch (e) {}
-  // Fall back to the footer, which carries only major.minor.
+  // Fall back to the footer, which ships with the full version.
   const f = document.querySelector(".footer-version");
   return f ? f.textContent.replace(/^v/, "") : "";
 }
@@ -68,6 +72,7 @@ async function check() {
     const upd = await t.updater.check();
     return upd ? upd : "none";
   } catch (e) {
+    console.error("textmint: update check failed:", e);
     return "error";
   }
 }
@@ -107,6 +112,12 @@ function renderPill() {
       "Opens the releases page in your browser.", pillDownload));
   } else if (pill === "copied") {
     box.appendChild(document.createTextNode("Download link copied. Open it in your browser."));
+  } else if (pill === "move") {
+    box.appendChild(document.createTextNode(MOVE_TEXT));
+  } else if (channelKind === "move") {
+    box.appendChild(pillButton("v" + state.version + " available",
+      "Textmint is running from a read-only location and cannot update itself.",
+      () => { pill = "move"; renderPill(); }));
   } else if (channelKind === "auto") {
     box.appendChild(pillButton("v" + state.version + " available",
       "Update Textmint and relaunch. Asks first.", () => { pill = "confirm"; renderPill(); }));
@@ -191,6 +202,9 @@ function renderAbout() {
   box.appendChild(line("Version " + state.version + " is available."));
   if (channelKind === "auto") {
     box.appendChild(actionButton("Update now", startAutoUpdate, true));
+  } else if (channelKind === "move") {
+    box.appendChild(line(MOVE_TEXT));
+    box.appendChild(actionButton("Open download page", downloadAction));
   } else {
     box.appendChild(line("This install updates from the download page."));
     box.appendChild(actionButton("Open download page", downloadAction));
@@ -287,6 +301,7 @@ async function startAutoUpdate() {
     const t = tauri();
     if (t && t.process && t.process.relaunch) await t.process.relaunch();
   } catch (e) {
+    console.error("textmint: update install failed:", e);
     installing = false;
     pill = "failed";
     renderPill();
@@ -294,6 +309,10 @@ async function startAutoUpdate() {
     if (box) {
       box.innerHTML = "";
       box.appendChild(line("Update failed. Try the download page instead."));
+      // The plugin rejects with a string or an Error; show it so a report has
+      // something to go on.
+      const why = e && e.message ? e.message : String(e || "");
+      if (why) box.appendChild(line("Reason: " + why));
       box.appendChild(actionButton("Open download page", downloadAction));
     }
   }
@@ -327,7 +346,14 @@ export function initUpdate() {
     else cancelConfirm();
   });
 
-  appVersion().then((v) => { const s = el("about-version"); if (s && v) s.textContent = v; });
+  // The footer ships with the version from index.html; the running app corrects it
+  // from Tauri, so an installed copy always shows its real version.
+  appVersion().then((v) => {
+    if (!v) return;
+    const s = el("about-version");
+    if (s) s.textContent = v;
+    if (about) about.textContent = "v" + v;
+  });
 
   // Learn the channel, then run the launch check if it is enabled and this is a
   // real build with the updater present.

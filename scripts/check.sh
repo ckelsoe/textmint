@@ -114,26 +114,25 @@ if [ "$HAVE_NODE" = "1" ]; then
   done
 fi
 
-# 4. A version bump has to touch all four places. The footer span carries only
-#    major.minor (v0.2); the other three carry the full version (0.2.0).
+# 4. A version bump has to touch all four places, and all four carry the full
+#    version: the footer span reads v0.2.0 against 0.2.0 in the other three.
 if [ "$HAVE_NODE" = "1" ] && [ -f package.json ] && [ -f src-tauri/tauri.conf.json ] \
    && [ -f src-tauri/Cargo.toml ] && [ -f src/index.html ]; then
   V_PKG=$(read_json_field package.json version)
   V_TAURI=$(read_json_field src-tauri/tauri.conf.json version)
   V_CARGO=$(sed -n 's/^version = "\(.*\)"/\1/p' src-tauri/Cargo.toml | head -1)
   V_FOOT=$(sed -n 's/.*class="footer-version">v\([^<]*\)<.*/\1/p' src/index.html | head -1)
-  V_SHORT=$(printf '%s' "$V_PKG" | cut -d. -f1,2)
 
   if [ -z "$V_PKG" ] || [ -z "$V_CARGO" ] || [ -z "$V_FOOT" ]; then
     fail "could not read a version"
     printf '        package.json=%s tauri.conf.json=%s Cargo.toml=%s footer=%s\n' \
       "${V_PKG:-<none>}" "${V_TAURI:-<none>}" "${V_CARGO:-<none>}" "${V_FOOT:-<none>}"
-  elif [ "$V_PKG" = "$V_TAURI" ] && [ "$V_PKG" = "$V_CARGO" ] && [ "$V_FOOT" = "$V_SHORT" ]; then
+  elif [ "$V_PKG" = "$V_TAURI" ] && [ "$V_PKG" = "$V_CARGO" ] && [ "$V_FOOT" = "$V_PKG" ]; then
     pass "version agrees in all four files ($V_PKG)"
   else
     fail "version mismatch"
     printf '        package.json=%s tauri.conf.json=%s Cargo.toml=%s footer=v%s (expected v%s)\n' \
-      "$V_PKG" "$V_TAURI" "$V_CARGO" "$V_FOOT" "$V_SHORT"
+      "$V_PKG" "$V_TAURI" "$V_CARGO" "$V_FOOT" "$V_PKG"
   fi
 fi
 

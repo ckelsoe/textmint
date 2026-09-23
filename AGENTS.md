@@ -78,6 +78,6 @@ with no DOM access; `src/main.js` is UI wiring. macOS aarch64 is the only target
   it the app builds fine and then fails at runtime with a permission error.
 - A version bump touches four files: `package.json`, `src-tauri/Cargo.toml`,
   `src-tauri/tauri.conf.json`, and the `.footer-version` span in `src/index.html`, which carries
-  only major.minor (`v0.2`).
+  the full version (`v0.2.0`). The running app overwrites the span from Tauri at startup.
 
 <!-- /bmad:context -->
