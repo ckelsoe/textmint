@@ -374,32 +374,35 @@ textarea::placeholder { color: var(--clr-border); }
 }
 .footer-version:hover { color: var(--clr-mint); text-decoration: underline; }
 
-/* Update banner: a slim bar between the header and the panes. */
-.update-banner {
-  display: flex;
+/* Update indicator: a mint pill in the status bar, next to the version. It
+   reuses the primary button pair (--clr-mint / --clr-mint-txt), so it carries
+   no new contrast pair. */
+.update-pill {
+  display: inline-flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 20px;
-  background: var(--clr-surface);
-  border-bottom: 1px solid var(--clr-border);
-  border-left: 3px solid var(--clr-mint);
-  font-size: 13px;
-  color: var(--clr-text);
+  gap: 6px;
+  color: var(--clr-mint);
+  white-space: nowrap;
 }
-.update-banner #update-banner-msg { flex: 1; }
-#update-banner-view { background: var(--clr-mint); color: var(--clr-mint-txt); }
-#update-banner-view:hover { background: var(--clr-mint-h); }
-.banner-dismiss {
+.update-pill[hidden] { display: none; }
+.update-pill button {
+  padding: 1px 9px;
+  font-size: 11px;
+  border-radius: 999px;
+  background: var(--clr-mint);
+  color: var(--clr-mint-txt);
+}
+.update-pill button:hover { background: var(--clr-mint-h); }
+.update-pill button.quiet {
   background: transparent;
-  border: 1px solid var(--clr-border);
   color: var(--clr-dim);
-  width: 26px;
-  height: 26px;
-  padding: 0;
-  border-radius: 6px;
-  line-height: 1;
+  border: 1px solid var(--clr-border);
 }
-.banner-dismiss:hover { border-color: var(--clr-mint); color: var(--clr-mint); }
+.update-pill button.quiet:hover { color: var(--clr-text); border-color: var(--clr-mint); }
+/* Narrow windows: the shortcuts hint gives way to the update pill. */
+@media (max-width: 900px) {
+  .status-bar:has(.update-pill:not([hidden])) .footer-shortcuts { display: none; }
+}
 
 /* About modal. */
 .modal { position: fixed; inset: 0; z-index: 10000; }

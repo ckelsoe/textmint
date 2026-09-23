@@ -7,8 +7,10 @@
 //   - "download" (the Windows per-machine MSI): the About box links to the
 //                releases page instead, so it never drops a second copy beside a
 //                managed install.
-// Either way, a launch-time check shows a dismissible banner when a newer
-// version exists. See docs/plans/self-update.md.
+// Either way, once a check finds a newer version a mint pill appears in the
+// status bar next to the version. Clicking it asks "Update and relaunch?" on the
+// auto channel, or opens the releases page on the download channel. See
+// docs/plans/self-update.md.
 //
 // Everything degrades quietly: with no Tauri (a plain browser during dev) or an
 // unkeyed build the check simply finds nothing, and the About box still opens and
@@ -22,6 +24,11 @@ const CHECK_PREF = "textmint-update-check";
 let state = null;
 let checking = false;
 let channelKind = "download"; // safe default: never self-install unless told to
+// What the status-bar pill shows: "idle" (the offer), "confirm", "busy"
+// (download and install in progress), "failed", or "copied".
+let pill = "idle";
+let busyText = "";
+let installing = false;
 
 const tauri = () => window.__TAURI__;
 
@@ -65,27 +72,71 @@ async function check() {
   }
 }
 
-async function runCheck(announce) {
-  if (checking) return;
+function hasUpdate() {
+  return !!state && state !== "none" && state !== "error";
+}
+
+async function runCheck() {
+  if (checking || installing) return;
   checking = true;
   renderAbout();
   state = await check();
   checking = false;
-  if (announce && state && state !== "none" && state !== "error") showBanner(state.version);
   renderAbout();
+  renderPill();
 }
 
-// --- Banner ---------------------------------------------------------------
-function showBanner(version) {
-  const bar = el("update-banner");
-  const msg = el("update-banner-msg");
-  if (!bar || !msg) return;
-  msg.textContent = "Textmint " + version + " is available.";
-  bar.hidden = false;
+// --- Status-bar pill ------------------------------------------------------
+function renderPill() {
+  const box = el("update-pill");
+  if (!box) return;
+  box.innerHTML = "";
+  if (!hasUpdate()) { box.hidden = true; return; }
+  box.hidden = false;
+
+  if (pill === "busy") {
+    box.appendChild(document.createTextNode(busyText));
+  } else if (pill === "confirm") {
+    box.appendChild(document.createTextNode("Update and relaunch?"));
+    const yes = pillButton("Update", "", startAutoUpdate);
+    box.appendChild(yes);
+    box.appendChild(pillButton("Cancel", "", cancelConfirm, true));
+    yes.focus();
+  } else if (pill === "failed") {
+    box.appendChild(pillButton("Update failed: open download page",
+      "Opens the releases page in your browser.", pillDownload));
+  } else if (pill === "copied") {
+    box.appendChild(document.createTextNode("Download link copied. Open it in your browser."));
+  } else if (channelKind === "auto") {
+    box.appendChild(pillButton("v" + state.version + " available",
+      "Update Textmint and relaunch. Asks first.", () => { pill = "confirm"; renderPill(); }));
+  } else {
+    box.appendChild(pillButton("v" + state.version + " available",
+      "This install updates from the download page. Opens it in your browser.", pillDownload));
+  }
 }
-function hideBanner() {
-  const bar = el("update-banner");
-  if (bar) bar.hidden = true;
+
+function pillButton(label, tip, fn, quiet) {
+  const b = document.createElement("button");
+  b.type = "button";
+  b.textContent = label;
+  if (tip) b.dataset.tip = tip;
+  if (quiet) b.className = "quiet";
+  b.addEventListener("click", fn);
+  return b;
+}
+
+function cancelConfirm() {
+  if (pill !== "confirm") return;
+  pill = "idle";
+  renderPill();
+  const b = document.querySelector("#update-pill button");
+  if (b) b.focus();
+}
+
+async function pillDownload() {
+  if (await openExternal(RELEASES_URL)) return;
+  if (await copyToClipboard(RELEASES_URL)) { pill = "copied"; renderPill(); }
 }
 
 // --- About box ------------------------------------------------------------
@@ -98,7 +149,7 @@ function openAbout() {
   // If nothing has run yet, let the check drive the display so the box never
   // flashes a stale "latest". Otherwise repaint from the state we have.
   const t = tauri();
-  if (state === null && !checking && t && t.updater) runCheck(false);
+  if (state === null && !checking && t && t.updater) runCheck();
   else renderAbout();
 }
 function closeAbout() {
@@ -110,6 +161,8 @@ function closeAbout() {
 function renderAbout() {
   const box = el("about-update");
   if (!box) return;
+  // Mid-install, setBusy owns this area; a repaint would offer "Update now" again.
+  if (installing) return;
   box.innerHTML = "";
 
   const t = tauri();
@@ -120,24 +173,24 @@ function renderAbout() {
   if (checking) { box.appendChild(line("Checking for updates...")); return; }
   if (state === "error") {
     box.appendChild(line("Could not check for updates right now."));
-    box.appendChild(actionButton("Check again", () => runCheck(false)));
+    box.appendChild(actionButton("Check again", runCheck));
     return;
   }
   if (state === "none") {
     box.appendChild(line("You have the latest version."));
-    box.appendChild(actionButton("Check for updates", () => runCheck(false)));
+    box.appendChild(actionButton("Check for updates", runCheck));
     return;
   }
   if (state === null) {
     box.appendChild(line("Not checked yet."));
-    box.appendChild(actionButton("Check for updates", () => runCheck(false)));
+    box.appendChild(actionButton("Check for updates", runCheck));
     return;
   }
 
   // An update is available.
   box.appendChild(line("Version " + state.version + " is available."));
   if (channelKind === "auto") {
-    box.appendChild(actionButton("Update now", doAutoUpdate, true));
+    box.appendChild(actionButton("Update now", startAutoUpdate, true));
   } else {
     box.appendChild(line("This install updates from the download page."));
     box.appendChild(actionButton("Open download page", downloadAction));
@@ -173,47 +226,71 @@ async function openExternal(url) {
 
 // The MSI's update path: open the releases page, or copy the link if that fails.
 async function downloadAction() {
-  if (!(await openExternal(RELEASES_URL))) copyLink();
+  if (await openExternal(RELEASES_URL)) return;
+  // Replace any prior status line so repeated clicks do not stack.
+  const box = el("about-update");
+  if (!box) return;
+  const old = box.querySelector(".about-status");
+  if (old) old.remove();
+  const ok = await copyToClipboard(RELEASES_URL);
+  const p = line(ok ? "Link copied. Open it in your browser." : RELEASES_URL);
+  p.classList.add("about-status");
+  box.appendChild(p);
 }
 
-async function copyLink() {
+async function copyToClipboard(text) {
   const t = tauri();
-  // Replace any prior status line so repeated clicks do not stack.
-  const say = (text) => {
-    const box = el("about-update");
-    if (!box) return;
-    const old = box.querySelector(".about-status");
-    if (old) old.remove();
-    const p = line(text);
-    p.classList.add("about-status");
-    box.appendChild(p);
-  };
   try {
     if (t && t.clipboardManager && t.clipboardManager.writeText) {
-      await t.clipboardManager.writeText(RELEASES_URL);
+      await t.clipboardManager.writeText(text);
     } else {
-      await navigator.clipboard.writeText(RELEASES_URL);
+      await navigator.clipboard.writeText(text);
     }
-    say("Link copied. Open it in your browser.");
+    return true;
   } catch (e) {
-    say(RELEASES_URL);
+    return false;
   }
 }
 
-async function doAutoUpdate() {
+// Shows one progress message in both the pill and the About box, so starting
+// the update from either place keeps the other in step.
+function setBusy(text) {
+  pill = "busy";
+  busyText = text;
+  renderPill();
   const box = el("about-update");
-  if (!state || state === "none" || state === "error") return;
+  if (box) { box.innerHTML = ""; box.appendChild(line(text)); }
+}
+
+async function startAutoUpdate() {
+  if (!hasUpdate() || installing) return;
+  installing = true;
+  let total = 0;
+  let got = 0;
+  let shown = -1;
   try {
-    if (box) { box.innerHTML = ""; box.appendChild(line("Downloading update...")); }
+    setBusy("Downloading update...");
     await state.downloadAndInstall((event) => {
-      if (box && event && event.event === "Finished") {
-        box.innerHTML = "";
-        box.appendChild(line("Installing. Textmint will relaunch."));
+      if (!event) return;
+      if (event.event === "Started") {
+        total = (event.data && event.data.contentLength) || 0;
+      } else if (event.event === "Progress" && total) {
+        got += (event.data && event.data.chunkLength) || 0;
+        // Step by 10% so the live region is not flooded with announcements.
+        const pct = Math.min(100, Math.floor((got * 10) / total) * 10);
+        if (pct !== shown) { shown = pct; setBusy("Downloading update " + pct + "%"); }
+      } else if (event.event === "Finished") {
+        setBusy("Installing. Textmint will relaunch.");
       }
     });
+    setBusy("Relaunching...");
     const t = tauri();
     if (t && t.process && t.process.relaunch) await t.process.relaunch();
   } catch (e) {
+    installing = false;
+    pill = "failed";
+    renderPill();
+    const box = el("about-update");
     if (box) {
       box.innerHTML = "";
       box.appendChild(line("Update failed. Try the download page instead."));
@@ -237,11 +314,6 @@ export function initUpdate() {
     a.addEventListener("click", () => openExternal(a.dataset.url));
   });
 
-  const view = el("update-banner-view");
-  if (view) view.addEventListener("click", () => { hideBanner(); openAbout(); });
-  const dismiss = el("update-banner-dismiss");
-  if (dismiss) dismiss.addEventListener("click", hideBanner);
-
   const modal = el("about-modal");
   if (modal) {
     modal.addEventListener("click", (e) => {
@@ -249,7 +321,10 @@ export function initUpdate() {
     });
   }
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeAbout();
+    if (e.key !== "Escape") return;
+    const m = el("about-modal");
+    if (m && !m.hidden) closeAbout();
+    else cancelConfirm();
   });
 
   appVersion().then((v) => { const s = el("about-version"); if (s && v) s.textContent = v; });
@@ -258,6 +333,6 @@ export function initUpdate() {
   // real build with the updater present.
   loadChannel().then(() => {
     const t = tauri();
-    if (t && t.updater && prefOn()) setTimeout(() => runCheck(true), 1200);
+    if (t && t.updater && prefOn()) setTimeout(runCheck, 1200);
   });
 }

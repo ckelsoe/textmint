@@ -112,12 +112,18 @@ To change: shift the neutral tokens' hue; the mint accent tokens stay put.
 
 ## Component notes
 
-- **Primary button (Clean):** mint bg, `--clr-mint-txt`. The only mint-filled control.
+- **Primary button (Clean):** mint bg, `--clr-mint-txt`. The only mint-filled control in the
+  header. The other mint fill is the status-bar update pill (below).
 - **Secondary (Copy / Copy HTML):** neutral `--clr-sec`.
 - **Ghost (Clear):** transparent, bordered.
 - **Checkboxes:** `accent-color: var(--clr-mint)`.
 - **Focus:** every interactive element gets a visible mint focus ring (keyboard nav).
 - **Tooltips:** inverted surface, subtle shadow.
+- **Update pill:** sits in the status bar after the version, only while an update exists. The
+  offer is a small rounded button with the primary pair (`--clr-mint` / `--clr-mint-txt`); its
+  status text ("Downloading update 40%") is `--clr-mint` on `--clr-surface`, about 6.7:1 dark and
+  4.7:1 light. Not `--clr-accent-text`: that reads ~3.8:1 on the light surface, too low for 11px.
+  Mint, not red, because an update is news, not an error.
 
 ## Accessibility
 
