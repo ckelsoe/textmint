@@ -54,8 +54,8 @@ with no DOM access; `src/main.js` is UI wiring. macOS aarch64 is the only target
 ## Known pitfalls
 
 - Adding a cleaning option takes five edits and fails quietly if you miss one: a checkbox with an
-  `id` and a `data-tip` inside `.controls` (or the Settings panel's Text section) in
-  `src/index.html`, the id in `CHECK_IDS` (`src/controls.js`), a key in `opts()` in `src/main.js`, a key in `DEFAULTS` in
+  `id`, a `data-tip` and a `data-setting` row in its section of the Settings drawer in
+  `src/index.html`, the id in `SETTING_SECTIONS` (`src/controls.js`), the id in `CHECK_IDS` (`src/controls.js`), a key in `opts()` in `src/main.js`, a key in `DEFAULTS` in
   `src/pipeline.js`, and a branch at the correct position in `clean()`, plus the same branch in
   `cleanToHtml()` if the pass should affect Copy HTML. Preferences persist to `localStorage`
   under `textmint-prefs`, theme under `textmint-theme`.

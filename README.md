@@ -17,20 +17,20 @@ not a few hundred.
   bullets, and `(ctrl+o to expand)` artifacts.
 - **Strip Unicode junk** — emojis, zero-width characters, variation selectors, bidi marks,
   control characters, math and non-ASCII currency symbols.
-- **Strip markdown** — `**bold**`, `# headers`, backtick code, and `[links](url)` become
-  plain text.
 - **Reflow & tidy** — join soft-wrapped paragraph lines, normalize bullets, collapse blank
   lines, strip leading indentation, hard-wrap at a chosen width.
-- **Copy** as plain text, or **Copy HTML** — converts markdown to rich text so it pastes
-  into Outlook or Word with bold, bullets, and headers intact.
+- **Three outputs, three copy buttons** — **Copy text** (plain, markdown removed), **Copy
+  markdown**, and **Copy HTML**, which pastes into Outlook or Word as rich text with bold,
+  bullets, and headers intact.
 - **Rich paste** — paste from Word, Google Docs, a web page or a chat app and the
   formatting comes with it: headings, lists, bold and tables arrive as markdown, and the
   HTML output keeps the source's formatting with the junk (Word's `mso-*` styles, fake
   bullets, tracking parameters) removed.
-- **Settings** for each output: markdown flavor (CommonMark, GitHub, Obsidian) and style,
-  and what the HTML keeps (styles, fonts, colors, table styling, images).
-- Live preview, saved preferences, dark/light mode, keyboard shortcuts
-  (`Cmd+Enter` to clean, `Cmd+Shift+C` to copy).
+- **One settings drawer** beside the live output: the cleaning passes, paste handling, and
+  each output's options (markdown flavor and style, what the HTML keeps). Pin the settings
+  you change often to a bar under the header.
+- Live output as you type or paste, saved preferences, dark/light mode, keyboard shortcuts
+  (`Cmd+Shift+C` copy text, `Cmd+Shift+M` copy markdown, `Cmd+Shift+H` copy HTML).
 
 ## Develop
 

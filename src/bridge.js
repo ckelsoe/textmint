@@ -16,13 +16,13 @@
 //
 // Protocol: the driver writes <dir>/command.json; this loop polls it, runs the
 // command once per new sequence number, and writes <dir>/result.json back.
-//   command.json: { seq, action, input?, options?, theme?, html? }
-//     options: { "opt-strip-markdown": true, "opt-wrap-width": "100",
+//   command.json: { seq, action, input?, options?, theme?, html?, id?, on? }
+//     options: { "opt-wrap": true, "opt-wrap-width": "100",
 //                "md-flavor": "obsidian", "html-mode": "clean", ... }
-//               keyed by the control ids in src/index.html (header and
-//               Settings panel); md-flavor applies its preset, as a click does
+//               keyed by the control ids in the Settings drawer; md-flavor
+//               applies its preset, as a click does
 //   result.json:  { seq, ok, action, input, output, markdown, html, copyOk,
-//                   heldHtml, stats, settings, actions, error }
+//                   heldHtml, pins, stats, settings, actions, error }
 // The set of valid actions is ACTIONS below; every result echoes its keys, so
 // a driver reads the current action list instead of trusting this comment.
 
@@ -39,6 +39,16 @@ const ACTIONS = {
   clean: async (ctx) => { await ctx.runClean(); return {}; },
   clear: (ctx) => { ctx.actClear(); return {}; },
   copy: async (ctx) => ({ copyOk: await ctx.actCopy() }),
+  copyMarkdown: async (ctx) => ({ copyOk: await ctx.actCopyMarkdown() }),
+  // Open the Settings drawer at a section, or close it with section "none":
+  // { action: "drawer", section: "html" }.
+  drawer: (ctx, cmd) => {
+    if (cmd.section === "none") ctx.closeSettings();
+    else ctx.openSettings(String(cmd.section || "cleaning"));
+    return {};
+  },
+  // Pin or unpin a setting: { action: "pin", id: "md-flavor", on: true }.
+  pin: (ctx, cmd) => { ctx.setPinned(String(cmd.id), cmd.on !== false); return {}; },
   copyHtml: async (ctx) => {
     const r = await ctx.actCopyHtml();
     return { copyOk: r.ok, html: r.html };
@@ -83,15 +93,15 @@ function currentSettings() {
 
 // Every control is set by its id, checkbox or not, so there is one way to set
 // wrap width (options["opt-wrap-width"]) and no second spelling to disagree.
-// The lookup is scoped to the header .controls and the Settings panel so
-// options can only reach real controls, never the input/output panes, and any
+// The lookup is scoped to the Settings drawer so options can only reach real
+// controls, never the input/output panes, and any
 // id that is not a control is returned as unknown rather than silently
 // dropped, so a driver's typo is visible. md-flavor goes first and applies its
 // preset, so a command can pick a flavor and still override one of its values.
 function applyOptions(ctx, options) {
   const unknown = [];
   if (!options || typeof options !== "object") return unknown;
-  const scopes = [document.querySelector(".controls"), document.getElementById("settings-modal")];
+  const scopes = [document.getElementById("settings-drawer")];
   const ids = Object.keys(options).sort((a, b) => (a === "md-flavor" ? -1 : b === "md-flavor" ? 1 : 0));
   ids.forEach((id) => {
     const el = document.getElementById(id);
@@ -107,7 +117,7 @@ async function runCommand(ctx, cmd) {
   const action = cmd.action || "state";
   const result = {
     seq: cmd.seq, ok: true, action,
-    input: null, output: null, markdown: null, html: null, copyOk: null, heldHtml: null,
+    input: null, output: null, markdown: null, html: null, copyOk: null, heldHtml: null, pins: null,
     stats: null, settings: null, actions: Object.keys(ACTIONS),
     unknownOptions: [], error: null,
   };
@@ -121,6 +131,7 @@ async function runCommand(ctx, cmd) {
     }
     if (cmd.theme === "light" || cmd.theme === "dark") ctx.applyTheme(cmd.theme === "light");
     result.unknownOptions = applyOptions(ctx, cmd.options);
+    if (ctx.refreshSettings) ctx.refreshSettings(); // cleaning chip, pinned row
     // Persist the flipped options so the state survives the next launch, the
     // same as a human toggling a checkbox does.
     ctx.savePrefs();
@@ -139,6 +150,7 @@ async function runCommand(ctx, cmd) {
   result.output = outText;
   result.markdown = ctx.outputMdEl ? ctx.outputMdEl.value : null;
   result.heldHtml = ctx.hasHeldHtml ? ctx.hasHeldHtml() : null;
+  result.pins = ctx.pins ? ctx.pins() : null;
   result.stats = {
     inChars: inText.length,
     outChars: outText.length,

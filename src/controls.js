@@ -1,23 +1,47 @@
 // Control ids in src/index.html, in one place so the preferences loader
 // (src/main.js) and the automation bridge (src/bridge.js) cannot drift.
 //
-// CHECK_IDS: the eight cleaning-option checkboxes. Five sit in the header and
-// apply to every output; strip-markdown, bullets and wrap sit in the Settings
-// panel's Text section, since they only shape the Text output.
+// CHECK_IDS: the cleaning-option checkboxes, all in the Settings drawer. The
+// five in CLEAN_IDS change the text and so every output; bullets and wrap only
+// shape the Text output. Strip markdown is not a setting: the Text output always
+// strips it (the pipeline keeps the option for the CLI).
 export const CHECK_IDS = [
-  "opt-strip-noise", "opt-strip-unicode", "opt-strip-markdown", "opt-wrap",
+  "opt-strip-noise", "opt-strip-unicode", "opt-wrap",
   "opt-collapse-blank", "opt-strip-indent", "opt-bullets", "opt-join-lines",
 ];
 
-// SETTING_IDS: the Settings panel's Markdown and HTML controls, checkbox or
-// select. Prefs and the bridge read each by its element type. Adding a setting
-// adds its id here, a control in #settings-modal, and a read in src/main.js.
-export const SETTING_IDS = [
-  "md-flavor", "md-bullet", "md-emphasis", "md-heading", "md-fence", "md-links",
-  "md-merged", "md-math", "md-highlight", "md-gfm", "md-callouts", "md-wrap",
-  "opt-rich-paste", "html-mode", "html-styles", "html-images", "html-colors",
-  "html-fonts", "html-table-style", "html-classes", "html-tracking", "html-tidy",
+// The cleaning passes the tab row's "Cleaning: n of 5" chip counts.
+export const CLEAN_IDS = [
+  "opt-strip-noise", "opt-strip-unicode", "opt-join-lines", "opt-strip-indent",
+  "opt-collapse-blank",
 ];
+
+
+// The drawer's sections, in order, and the setting rows in each. The drawer
+// opens at the section for the active Output tab, and test/controls.test.js
+// checks index.html against this. opt-wrap's row also holds opt-wrap-width.
+export const SETTING_SECTIONS = {
+  cleaning: CLEAN_IDS,
+  paste: ["opt-rich-paste", "md-math", "md-merged"],
+  text: ["opt-bullets", "opt-wrap"],
+  markdown: [
+    "md-flavor", "md-bullet", "md-emphasis", "md-heading", "md-fence", "md-links",
+    "md-highlight", "md-gfm", "md-callouts", "md-wrap",
+  ],
+  html: [
+    "html-mode", "html-styles", "html-images", "html-colors", "html-fonts",
+    "html-table-style", "html-classes", "html-tracking", "html-tidy",
+  ],
+};
+
+// Every setting the drawer holds, in section order. Each can be pinned.
+export const PINNABLE = Object.values(SETTING_SECTIONS).flat();
+
+// SETTING_IDS: the drawer's Paste, Markdown and HTML controls, checkbox or
+// select, derived from SETTING_SECTIONS so there is one list to edit. Prefs and
+// the bridge read each by its element type. Adding a setting adds its id to
+// SETTING_SECTIONS, a row in #settings-drawer, and a read in src/main.js.
+export const SETTING_IDS = PINNABLE.filter((id) => !CHECK_IDS.includes(id));
 
 // What each markdown flavor sets. Only the settings a flavor decides: the style
 // choices (bullets, emphasis, headings, fences, links) stay as the user left
@@ -52,3 +76,26 @@ export function renderFlavorFor(flavor, gfm) {
   if (!gfm) return "commonmark";
   return flavor === "obsidian" ? "obsidian" : "github";
 }
+
+
+// The drawer section to open for an Output tab.
+export const SECTION_FOR_VIEW = { text: "text", markdown: "markdown", html: "html", rendered: "html" };
+
+// Saved preferences, keeping only controls that exist now. 0.5.0 saved
+// opt-strip-markdown, which is no longer a setting; anything like it is dropped
+// here instead of reaching a control that is not there.
+export function knownPrefs(saved) {
+  const keep = new Set(CHECK_IDS.concat(SETTING_IDS, ["opt-wrap-width"]));
+  const out = {};
+  if (!saved || typeof saved !== "object") return out;
+  Object.keys(saved).forEach((id) => { if (keep.has(id)) out[id] = saved[id]; });
+  return out;
+}
+
+// Pinned settings: a list of setting ids, kept only while each is still a
+// pinnable setting, in the order the user pinned them.
+export function knownPins(saved) {
+  if (!Array.isArray(saved)) return [];
+  return saved.filter((id, i) => PINNABLE.includes(id) && saved.indexOf(id) === i);
+}
+

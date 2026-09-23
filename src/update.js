@@ -373,7 +373,9 @@ export function initUpdate() {
     });
   }
   document.addEventListener("keydown", (e) => {
-    if (e.key !== "Escape") return;
+    // An Escape something else already handled (the settings drawer closing)
+    // is not also a request to defer an update.
+    if (e.key !== "Escape" || e.defaultPrevented) return;
     const m = el("about-modal");
     if (m && !m.hidden) closeAbout();
     else deferInstall();

@@ -119,10 +119,20 @@ To change: shift the neutral tokens' hue; the mint accent tokens stay put.
 - **Checkboxes:** `accent-color: var(--clr-mint)`.
 - **Focus:** every interactive element gets a visible mint focus ring (keyboard nav).
 - **Tooltips:** inverted surface, subtle shadow.
-- **Icon buttons** (`.icon-btn`): the round theme and settings buttons in the header, ghost
-  style, mint on hover.
-- **Settings panel:** the About modal's shell at 560px, scrollable, one section per output.
-  Rows are a label and a select on a 160px grid, stacked below 480px wide.
+- **Header:** an action bar since 0.6.0: Clear, Copy text, Copy markdown, Copy HTML (one look,
+  `--clr-sec`, mint "Copied!" flash), and the theme toggle. No settings live there.
+- **Icon buttons** (`.icon-btn`): round, ghost style, mint on hover. The theme toggle in the
+  header; the settings gear, smaller, at the right of the Output tab row.
+- **Settings drawer:** non-modal, over the input pane (380px, or 50%; full width below 800px),
+  `--clr-surface` with a right border and a soft shadow, so the output stays visible and live.
+  Sections in pipeline order (Cleaning, Paste, Text, Markdown, HTML), each with a one-line note
+  on what it affects. Rows are label, control and a pin toggle on a 130px / 1fr / auto grid.
+- **Pin toggle:** a pushpin outline in `--clr-muted`, `--clr-mint` when pinned.
+- **Pinned row:** under the header, hidden when empty. Chips are outlined pills: a toggle chip
+  fills with the primary pair when on; a select chip shows "Name: value".
+- **Cleaning chip:** an outlined pill in the Output tab row, "Cleaning: n of 5", opening the
+  drawer at Cleaning. It keeps the app's core job visible now that the header holds no
+  checkboxes.
 - **Rich paste chip:** a pill in the Input label while a paste's HTML is held. `--clr-mint`
   text, not `--clr-accent-text`, for the same 11px contrast reason as the update pill.
 - **Callouts** in the Preview: a mint left rule on `--clr-surface`, with the label in bold.

@@ -4,7 +4,10 @@
 import { clean, cleanToMarkdown, looksLikeHtml, prefersPlainPaste } from "./pipeline.js";
 import { initBridge } from "./bridge.js";
 import { initUpdate } from "./update.js";
-import { CHECK_IDS, SETTING_IDS, MD_PRESETS, HTML_OPTION_IDS, renderFlavorFor } from "./controls.js";
+import { initDrawer } from "./drawer.js";
+import {
+  CHECK_IDS, SETTING_IDS, MD_PRESETS, HTML_OPTION_IDS, renderFlavorFor, knownPrefs,
+} from "./controls.js";
 
 (function () {
   const inputEl      = document.getElementById("input");
@@ -12,14 +15,13 @@ import { CHECK_IDS, SETTING_IDS, MD_PRESETS, HTML_OPTION_IDS, renderFlavorFor } 
   const outputMdEl   = document.getElementById("output-markdown");   // Markdown view
   const outputRendEl = document.getElementById("output-rendered");   // Rendered HTML
   const outputHtmlEl = document.getElementById("output-html");       // HTML source
-  const btnClean     = document.getElementById("btn-clean");
   const btnCopy      = document.getElementById("btn-copy");
+  const btnCopyMd    = document.getElementById("btn-copy-md");
   const btnCopyHtml  = document.getElementById("btn-copy-html");
   const btnClear     = document.getElementById("btn-clear");
   const statIn       = document.getElementById("stat-in");
   const statOut      = document.getElementById("stat-out");
   const statLines    = document.getElementById("stat-lines");
-  const outMeta      = document.getElementById("output-meta");
 
   function opt(id) { return document.getElementById(id).checked; }
   function num(id) { return parseInt(document.getElementById(id).value, 10) || 80; }
@@ -107,8 +109,7 @@ import { CHECK_IDS, SETTING_IDS, MD_PRESETS, HTML_OPTION_IDS, renderFlavorFor } 
 
   function loadPrefs() {
     try {
-      const p = JSON.parse(localStorage.getItem(PREF_KEY));
-      if (!p) return;
+      const p = knownPrefs(JSON.parse(localStorage.getItem(PREF_KEY)));
       CHECK_IDS.concat(SETTING_IDS).forEach((id) => {
         const el = document.getElementById(id);
         if (!el || p[id] === undefined) return;
@@ -128,7 +129,7 @@ import { CHECK_IDS, SETTING_IDS, MD_PRESETS, HTML_OPTION_IDS, renderFlavorFor } 
     return {
       stripNoise:    opt("opt-strip-noise"),
       stripUnicode:  opt("opt-strip-unicode"),
-      stripMarkdown: opt("opt-strip-markdown"),
+      stripMarkdown: true, // the Text output is plain text by definition
       bullets:       opt("opt-bullets"),
       joinLines:     opt("opt-join-lines"),
       stripIndent:   opt("opt-strip-indent"),
@@ -210,7 +211,6 @@ import { CHECK_IDS, SETTING_IDS, MD_PRESETS, HTML_OPTION_IDS, renderFlavorFor } 
     statOut.textContent = "Out: " + outText.length.toLocaleString() + " chars";
     const lines = outText ? outText.split("\n").length : 0;
     statLines.textContent = lines.toLocaleString() + " lines";
-    outMeta.textContent   = outText ? lines + " lines" : "";
   }
 
   // One render fills all four Output views from the current input and options:
@@ -252,6 +252,11 @@ import { CHECK_IDS, SETTING_IDS, MD_PRESETS, HTML_OPTION_IDS, renderFlavorFor } 
   async function actCopy() {
     if (!outputEl.value) return false;
     return copyText(outputEl.value);
+  }
+
+  async function actCopyMarkdown() {
+    if (!outputMdEl.value) return false;
+    return copyText(outputMdEl.value);
   }
 
   // The HTML the Preview shows and Copy HTML puts on the clipboard: the cleaned
@@ -303,52 +308,28 @@ import { CHECK_IDS, SETTING_IDS, MD_PRESETS, HTML_OPTION_IDS, renderFlavorFor } 
   });
 
   // --- Wiring ---------------------------------------------------------------
-  btnClean.addEventListener("click", render);
-
-  btnCopy.addEventListener("click", async () => {
-    if (await actCopy()) flashCopied(btnCopy, "Copy");
-  });
-
-  btnCopyHtml.addEventListener("click", async () => {
-    if ((await actCopyHtml()).ok) flashCopied(btnCopyHtml, "Copy HTML");
-  });
+  // One entry per copy button: its action, its label, and its Cmd+Shift key.
+  const COPIES = [
+    { btn: btnCopy, label: "Copy text", key: "c", run: async () => actCopy() },
+    { btn: btnCopyMd, label: "Copy markdown", key: "m", run: async () => actCopyMarkdown() },
+    { btn: btnCopyHtml, label: "Copy HTML", key: "h", run: async () => (await actCopyHtml()).ok },
+  ];
+  async function copyVia(c) {
+    if (await c.run()) flashCopied(c.btn, c.label);
+  }
+  COPIES.forEach((c) => c.btn.addEventListener("click", () => copyVia(c)));
 
   btnClear.addEventListener("click", actClear);
 
-  document.addEventListener("keydown", async (e) => {
-    const mod = e.metaKey || e.ctrlKey;
-    if (mod && !e.shiftKey && e.key === "Enter") { e.preventDefault(); render(); }
-    if (mod && e.shiftKey && (e.key === "C" || e.key === "c")) {
-      e.preventDefault();
-      if (await actCopy()) flashCopied(btnCopy, "Copy");
-    }
-  });
-
-  // Toggling an option saves it and re-renders, so every view stays live.
-  document.querySelector(".controls").addEventListener("change", () => {
-    savePrefs();
-    render();
-  });
-
-  // --- Settings panel -------------------------------------------------------
-  const settingsModal = document.getElementById("settings-modal");
-  function openSettings() {
-    settingsModal.hidden = false;
-    document.getElementById("settings-close").focus();
-  }
-  function closeSettings() {
-    if (settingsModal.hidden) return;
-    settingsModal.hidden = true;
-    document.getElementById("btn-settings").focus();
-  }
-  document.getElementById("btn-settings").addEventListener("click", openSettings);
-  settingsModal.addEventListener("click", (e) => {
-    if (e.target && e.target.dataset && e.target.dataset.close) closeSettings();
-  });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && !settingsModal.hidden) closeSettings();
+    if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return;
+    const c = COPIES.find((x) => x.key === e.key.toLowerCase());
+    if (!c) return;
+    e.preventDefault();
+    copyVia(c);
   });
 
+  // --- Settings drawer ----------------------------------------------------------
   function applyPreset(flavor) {
     const preset = MD_PRESETS[flavor];
     if (!preset) return;
@@ -368,13 +349,21 @@ import { CHECK_IDS, SETTING_IDS, MD_PRESETS, HTML_OPTION_IDS, renderFlavorFor } 
     if (md != null) inputEl.value = md;
   }
 
-  settingsModal.addEventListener("change", async (e) => {
+  // Every setting change, from the drawer or a pinned chip, lands here: the
+  // chips drive the drawer controls and fire their change events.
+  async function onSettingChange(e) {
     const id = e.target && e.target.id;
     if (id === "md-flavor") applyPreset(e.target.value);
     savePrefs();
     if (id === "md-math" || id === "md-merged" || id === "md-flavor") await reconvert();
-    render();
-  });
+    await render();
+  }
+
+  const activeView = () => {
+    const t = document.querySelector(".output-tabs .tab.active");
+    return t ? t.dataset.view : "text";
+  };
+  let drawer = null; // set once prefs are loaded, below
 
   let debounceTimer;
   inputEl.addEventListener("input", () => {
@@ -421,6 +410,7 @@ import { CHECK_IDS, SETTING_IDS, MD_PRESETS, HTML_OPTION_IDS, renderFlavorFor } 
 
   // --- Init -----------------------------------------------------------------
   loadPrefs();
+  drawer = initDrawer({ activeView, onChange: onSettingChange });
   try { applyTheme(localStorage.getItem("textmint-theme") === "light"); } catch (e) {}
   try { showView(localStorage.getItem(TAB_KEY) || "text"); } catch (e) { showView("text"); }
 
@@ -451,7 +441,12 @@ import { CHECK_IDS, SETTING_IDS, MD_PRESETS, HTML_OPTION_IDS, renderFlavorFor } 
   // runClean is the async render that fills every Output view.
   initBridge({
     inputEl, outputEl, outputMdEl, applyTheme, savePrefs, showView,
-    runClean: render, actClear, actCopy, actCopyHtml, htmlFor,
+    runClean: render, actClear, actCopy, actCopyMarkdown, actCopyHtml, htmlFor,
     pasteHtml, applyPreset, hasHeldHtml: () => !!heldHtml,
+    refreshSettings: () => drawer && drawer.refresh(),
+    setPinned: (id, on) => drawer && drawer.setPinned(id, on),
+    openSettings: (section) => drawer && drawer.open(section),
+    closeSettings: () => drawer && drawer.close(),
+    pins: () => (drawer ? drawer.pins() : []),
   });
 })();
