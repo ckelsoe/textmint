@@ -119,6 +119,13 @@ To change: shift the neutral tokens' hue; the mint accent tokens stay put.
 - **Checkboxes:** `accent-color: var(--clr-mint)`.
 - **Focus:** every interactive element gets a visible mint focus ring (keyboard nav).
 - **Tooltips:** inverted surface, subtle shadow.
+- **Icon buttons** (`.icon-btn`): the round theme and settings buttons in the header, ghost
+  style, mint on hover.
+- **Settings panel:** the About modal's shell at 560px, scrollable, one section per output.
+  Rows are a label and a select on a 160px grid, stacked below 480px wide.
+- **Rich paste chip:** a pill in the Input label while a paste's HTML is held. `--clr-mint`
+  text, not `--clr-accent-text`, for the same 11px contrast reason as the update pill.
+- **Callouts** in the Preview: a mint left rule on `--clr-surface`, with the label in bold.
 - **Update pill:** sits in the status bar after the version, only while an update exists. The
   offer is a small rounded button with the primary pair (`--clr-mint` / `--clr-mint-txt`); its
   status text ("Downloading update 40%") is `--clr-mint` on `--clr-surface`, about 6.7:1 dark and

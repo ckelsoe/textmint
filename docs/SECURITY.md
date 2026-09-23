@@ -14,6 +14,17 @@ toggle, and the About box states plainly what the check sends. When a user insta
 the download is verified against the updater public key baked into the app before it is applied.
 See `docs/plans/self-update.md`.
 
+Pasted HTML is untrusted input and never reaches the page as written. It passes through
+`ammonia`, an allowlist sanitizer, before anything else reads it (`src-tauri/src/html.rs`):
+scripts, event handlers, `javascript:` and `data:` links, iframes, forms and embeds are removed
+in every mode, whatever the HTML settings say, and styles that can overlay the page or load
+content (`position`, `url(...)`, `image-set()`, CSS escapes) are dropped even under "All"
+(`html::can_fetch`). Raw HTML inside markdown is
+dropped inline and sanitized with a stricter allowlist as a block (`engine::render_with`). The
+CSP (`img-src 'self' data:`, `font-src 'self' data:`) stops the Preview fetching a paste's
+remote images or fonts, so viewing a paste sends nothing; Copy HTML keeps those references for
+the document they are pasted into.
+
 The About box also has links to the GitHub repo and the new-issue page. Clicking one launches
 the default browser at that page through the opener plugin, which is scoped in
 `capabilities/default.json` to those repo URLs alone. That is a user-initiated browser launch,

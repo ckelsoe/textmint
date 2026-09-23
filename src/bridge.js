@@ -16,15 +16,17 @@
 //
 // Protocol: the driver writes <dir>/command.json; this loop polls it, runs the
 // command once per new sequence number, and writes <dir>/result.json back.
-//   command.json: { seq, action, input?, options?, theme? }
-//     options: { "opt-strip-markdown": true, "opt-wrap-width": "100", ... }
-//               keyed by the control ids in src/index.html
-//   result.json:  { seq, ok, action, input, output, html, copyOk, stats,
-//                   settings, actions, error }
+//   command.json: { seq, action, input?, options?, theme?, html? }
+//     options: { "opt-strip-markdown": true, "opt-wrap-width": "100",
+//                "md-flavor": "obsidian", "html-mode": "clean", ... }
+//               keyed by the control ids in src/index.html (header and
+//               Settings panel); md-flavor applies its preset, as a click does
+//   result.json:  { seq, ok, action, input, output, markdown, html, copyOk,
+//                   heldHtml, stats, settings, actions, error }
 // The set of valid actions is ACTIONS below; every result echoes its keys, so
 // a driver reads the current action list instead of trusting this comment.
 
-import { CHECK_IDS } from "./controls.js";
+import { CHECK_IDS, SETTING_IDS } from "./controls.js";
 
 const POLL_MS = 200;
 
@@ -47,6 +49,13 @@ const ACTIONS = {
   // Switch the Output tab (text | markdown | rendered | html); an unknown name
   // falls back to text, and result.settings.outputTab reports what took.
   view: (ctx, cmd) => { ctx.showView(cmd.view); return {}; },
+  // A rich paste of cmd.html into an empty input, through the same function
+  // the paste handler uses: converted to markdown, HTML held for Clean HTML.
+  pasteHtml: async (ctx, cmd) => {
+    ctx.actClear();
+    const ok = await ctx.pasteHtml(String(cmd.html || ""));
+    return ok ? { html: await ctx.htmlFor() } : { ok: false, error: "html_markdown failed" };
+  },
 };
 
 function invoker() {
@@ -60,6 +69,10 @@ function currentSettings() {
     const el = document.getElementById(id);
     if (el) s[id] = !!el.checked;
   });
+  SETTING_IDS.forEach((id) => {
+    const el = document.getElementById(id);
+    if (el) s[id] = el.type === "checkbox" ? !!el.checked : el.value;
+  });
   const w = document.getElementById("opt-wrap-width");
   if (w) s["opt-wrap-width"] = w.value;
   s.theme = document.documentElement.dataset.theme === "light" ? "light" : "dark";
@@ -70,18 +83,22 @@ function currentSettings() {
 
 // Every control is set by its id, checkbox or not, so there is one way to set
 // wrap width (options["opt-wrap-width"]) and no second spelling to disagree.
-// The lookup is scoped to .controls so options can only reach real controls,
-// never the input/output panes, and any id that is not a control is returned
-// as unknown rather than silently dropped, so a driver's typo is visible.
-function applyOptions(options) {
+// The lookup is scoped to the header .controls and the Settings panel so
+// options can only reach real controls, never the input/output panes, and any
+// id that is not a control is returned as unknown rather than silently
+// dropped, so a driver's typo is visible. md-flavor goes first and applies its
+// preset, so a command can pick a flavor and still override one of its values.
+function applyOptions(ctx, options) {
   const unknown = [];
   if (!options || typeof options !== "object") return unknown;
-  const controls = document.querySelector(".controls");
-  Object.keys(options).forEach((id) => {
+  const scopes = [document.querySelector(".controls"), document.getElementById("settings-modal")];
+  const ids = Object.keys(options).sort((a, b) => (a === "md-flavor" ? -1 : b === "md-flavor" ? 1 : 0));
+  ids.forEach((id) => {
     const el = document.getElementById(id);
-    if (!el || !controls || !controls.contains(el)) { unknown.push(id); return; }
+    if (!el || !scopes.some((sc) => sc && sc.contains(el))) { unknown.push(id); return; }
     if (el.type === "checkbox") el.checked = !!options[id];
     else el.value = String(options[id]);
+    if (id === "md-flavor" && ctx.applyPreset) ctx.applyPreset(el.value);
   });
   return unknown;
 }
@@ -90,15 +107,20 @@ async function runCommand(ctx, cmd) {
   const action = cmd.action || "state";
   const result = {
     seq: cmd.seq, ok: true, action,
-    input: null, output: null, html: null, copyOk: null,
+    input: null, output: null, markdown: null, html: null, copyOk: null, heldHtml: null,
     stats: null, settings: null, actions: Object.keys(ACTIONS),
     unknownOptions: [], error: null,
   };
 
   try {
-    if (cmd.input != null) ctx.inputEl.value = String(cmd.input);
+    // Setting the input is an edit, as it is for a person: the input event
+    // lets main.js react the same way (it drops a held rich paste).
+    if (cmd.input != null) {
+      ctx.inputEl.value = String(cmd.input);
+      ctx.inputEl.dispatchEvent(new Event("input", { bubbles: true }));
+    }
     if (cmd.theme === "light" || cmd.theme === "dark") ctx.applyTheme(cmd.theme === "light");
-    result.unknownOptions = applyOptions(cmd.options);
+    result.unknownOptions = applyOptions(ctx, cmd.options);
     // Persist the flipped options so the state survives the next launch, the
     // same as a human toggling a checkbox does.
     ctx.savePrefs();
@@ -115,6 +137,8 @@ async function runCommand(ctx, cmd) {
   const outText = ctx.outputEl.value;
   result.input = inText;
   result.output = outText;
+  result.markdown = ctx.outputMdEl ? ctx.outputMdEl.value : null;
+  result.heldHtml = ctx.hasHeldHtml ? ctx.hasHeldHtml() : null;
   result.stats = {
     inChars: inText.length,
     outChars: outText.length,

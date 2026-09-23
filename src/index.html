@@ -25,16 +25,6 @@
         <h1><span class="title-text">Text</span><span class="title-mint">mint</span></h1>
       </div>
       <div class="controls">
-        <div class="control-group" data-tip="Strips markdown formatting symbols: **bold**, # headers, backtick code, and [links](url). Output is plain text.">
-          <input type="checkbox" id="opt-strip-markdown" checked />
-          <label for="opt-strip-markdown">Strip markdown</label>
-        </div>
-        <div class="control-group" data-tip="Hard-wraps long lines at the specified character width. Turn off to let your email client handle line length.">
-          <input type="checkbox" id="opt-wrap" checked />
-          <label for="opt-wrap">Wrap at</label>
-          <input type="number" id="opt-wrap-width" value="80" min="40" max="200" />
-          <label for="opt-wrap-width">chars</label>
-        </div>
         <div class="control-group" data-tip="Collapses runs of 3 or more consecutive blank lines down to one blank line.">
           <input type="checkbox" id="opt-collapse-blank" checked />
           <label for="opt-collapse-blank">Collapse blank lines</label>
@@ -42,10 +32,6 @@
         <div class="control-group" data-tip="Removes leading spaces and tabs from the start of every line.">
           <input type="checkbox" id="opt-strip-indent" checked />
           <label for="opt-strip-indent">Strip leading spaces</label>
-        </div>
-        <div class="control-group" data-tip="Normalizes * and + list markers to a plain - dash for consistent bullet style.">
-          <input type="checkbox" id="opt-bullets" checked />
-          <label for="opt-bullets">Normalize bullets</label>
         </div>
         <div class="control-group" data-tip="Joins soft-wrapped lines within a paragraph back into one flowing line. Short lines without terminal punctuation (headers, titles) are left alone.">
           <input type="checkbox" id="opt-join-lines" checked />
@@ -64,14 +50,20 @@
         <button id="btn-clear" data-tip="Clears both the input and output panes.">Clear</button>
         <button id="btn-clean" data-tip="Runs the cleaning pipeline on the input. Shortcut: Cmd+Enter.">Clean</button>
         <button id="btn-copy" data-tip="Copies the cleaned plain text to the clipboard. Paste anywhere as plain text. Shortcut: Cmd+Shift+C.">Copy</button>
-        <button id="btn-copy-html" data-tip="Converts markdown to formatted HTML and copies as rich text. Paste into Outlook or Word to get bold, bullets, and headers rendered. Does not re-wrap lines.">Copy HTML</button>
-        <button id="btn-theme" data-tip="Switch between dark and light mode. Preference is saved.">&#9681;</button>
+        <button id="btn-copy-html" data-tip="Copies the HTML tab as rich text. Paste into Outlook or Word to get bold, bullets, and headers rendered. Does not re-wrap lines.">Copy HTML</button>
+        <button id="btn-settings" class="icon-btn" aria-label="Settings" data-tip="Settings for the Text, Markdown and HTML outputs.">&#9881;</button>
+        <button id="btn-theme" class="icon-btn" data-tip="Switch between dark and light mode. Preference is saved.">&#9681;</button>
       </div>
     </header>
 
     <div class="panes">
       <div class="pane">
-        <div class="pane-label">Input <span>paste AI output here</span></div>
+        <div class="pane-label">Input
+          <span class="pane-label-right">
+            <span id="rich-chip" class="rich-chip" hidden data-tip="The HTML you pasted is kept for the HTML output, with its formatting. Editing the input drops it, and the HTML output then comes from the markdown.">Rich paste: formatting kept</span>
+            <span id="input-hint">paste AI output here</span>
+          </span>
+        </div>
         <textarea id="input" placeholder="Paste AI output here..."></textarea>
       </div>
       <div class="pane">
@@ -79,8 +71,8 @@
           <div class="output-tabs" role="tablist" aria-label="Output view">
             <button class="tab active" id="tab-text" data-view="text" role="tab" aria-selected="true" aria-controls="output" data-tip="Cleaned plain text: markdown removed. This is what Copy copies.">Text</button>
             <button class="tab" id="tab-markdown" data-view="markdown" role="tab" aria-selected="false" tabindex="-1" aria-controls="output-markdown" data-tip="Cleaned text with its markdown kept. This is the source the Preview is rendered from.">Markdown</button>
-            <button class="tab" id="tab-html" data-view="html" role="tab" aria-selected="false" tabindex="-1" aria-controls="output-html" data-tip="The HTML source generated from the markdown. This is what Copy HTML puts on the clipboard.">HTML</button>
-            <button class="tab" id="tab-rendered" data-view="rendered" role="tab" aria-selected="false" tabindex="-1" aria-controls="output-rendered" data-tip="The formatted result: the markdown rendered to HTML. Remote images do not load here but do paste; this is what Copy HTML sends to Word or Outlook.">Preview</button>
+            <button class="tab" id="tab-html" data-view="html" role="tab" aria-selected="false" tabindex="-1" aria-controls="output-html" data-tip="The HTML source: your rich paste cleaned (Clean HTML mode), or HTML generated from the markdown. This is what Copy HTML puts on the clipboard.">HTML</button>
+            <button class="tab" id="tab-rendered" data-view="rendered" role="tab" aria-selected="false" tabindex="-1" aria-controls="output-rendered" data-tip="The formatted result of the HTML tab. Remote images do not load here but do paste; this is what Copy HTML sends to Word or Outlook.">Preview</button>
           </div>
           <span id="output-meta"></span>
         </div>
@@ -95,9 +87,181 @@
       <span id="stat-in">In: 0 chars</span>
       <span id="stat-out">Out: 0 chars</span>
       <span id="stat-lines">0 lines</span>
-      <span class="footer-credit">Created by Charles Kelsoe &nbsp;<button type="button" id="btn-about" data-tip="About Textmint, and check for updates." class="footer-version">v0.4.4</button></span>
+      <span class="footer-credit">Created by Charles Kelsoe &nbsp;<button type="button" id="btn-about" data-tip="About Textmint, and check for updates." class="footer-version">v0.5.0</button></span>
       <span id="update-pill" class="update-pill" role="status" aria-live="polite" hidden></span>
       <span class="footer-shortcuts">Cmd+Enter to clean &nbsp; Cmd+Shift+C to copy</span>
+    </div>
+
+    <div id="settings-modal" class="modal" hidden>
+      <div class="modal-overlay" data-close="1"></div>
+      <div class="modal-card settings-card" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <button type="button" id="settings-close" class="modal-close" aria-label="Close" data-close="1">&#215;</button>
+        <h2 id="settings-title">Settings</h2>
+        <p class="settings-intro">Every clean fills all three outputs. The cleaning checkboxes in the header apply to all of them; these shape each one.</p>
+
+        <section class="settings-section" aria-labelledby="settings-text">
+          <h3 id="settings-text">Text</h3>
+          <p class="settings-note">The Text tab and Copy.</p>
+          <div class="control-group" data-tip="Strips markdown formatting symbols: **bold**, # headers, backtick code, and [links](url). Output is plain text.">
+            <input type="checkbox" id="opt-strip-markdown" checked />
+            <label for="opt-strip-markdown">Strip markdown</label>
+          </div>
+          <div class="control-group" data-tip="Normalizes * and + list markers to a plain - dash for consistent bullet style.">
+            <input type="checkbox" id="opt-bullets" checked />
+            <label for="opt-bullets">Normalize bullets</label>
+          </div>
+          <div class="control-group" data-tip="Hard-wraps long lines at the specified character width. Turn off to let your email client handle line length.">
+            <input type="checkbox" id="opt-wrap" checked />
+            <label for="opt-wrap">Wrap at</label>
+            <input type="number" id="opt-wrap-width" value="80" min="40" max="200" />
+            <label for="opt-wrap-width">chars</label>
+          </div>
+        </section>
+
+        <section class="settings-section" aria-labelledby="settings-md">
+          <h3 id="settings-md">Markdown</h3>
+          <p class="settings-note">The Markdown tab, and the HTML rendered from it.</p>
+          <div class="setting-row" data-tip="Sets the extensions, math and highlight settings below to suit where the markdown is going. You can still change each one.">
+            <label for="md-flavor">Flavor</label>
+            <select id="md-flavor">
+              <option value="commonmark">CommonMark</option>
+              <option value="github" selected>GitHub</option>
+              <option value="obsidian">Obsidian</option>
+            </select>
+          </div>
+          <div class="setting-row" data-tip="Dash, asterisk or plus for list items.">
+            <label for="md-bullet">Bullet marker</label>
+            <select id="md-bullet">
+              <option value="" selected>As written</option>
+              <option value="-">- dash</option>
+              <option value="*">* asterisk</option>
+              <option value="+">+ plus</option>
+            </select>
+          </div>
+          <div class="setting-row" data-tip="*em* and **bold**, or _em_ and __bold__.">
+            <label for="md-emphasis">Emphasis</label>
+            <select id="md-emphasis">
+              <option value="" selected>As written</option>
+              <option value="asterisk">*asterisks*</option>
+              <option value="underscore">_underscores_</option>
+            </select>
+          </div>
+          <div class="setting-row" data-tip="# Heading, or the heading text underlined with === or ---. Only levels 1 and 2 can be underlined.">
+            <label for="md-heading">Headings</label>
+            <select id="md-heading">
+              <option value="" selected>As written</option>
+              <option value="atx"># Heading</option>
+              <option value="setext">Underlined</option>
+            </select>
+          </div>
+          <div class="setting-row" data-tip="Backticks or tildes around code blocks.">
+            <label for="md-fence">Code fences</label>
+            <select id="md-fence">
+              <option value="" selected>As written</option>
+              <option value="backtick">``` backticks</option>
+              <option value="tilde">~~~ tildes</option>
+            </select>
+          </div>
+          <div class="setting-row" data-tip="Links inline as [text](url), or as [text][1] with the addresses listed at the end.">
+            <label for="md-links">Links</label>
+            <select id="md-links">
+              <option value="" selected>As written</option>
+              <option value="inline">Inline</option>
+              <option value="reference">Reference</option>
+            </select>
+          </div>
+          <div class="setting-row" data-tip="For pasted HTML: a table with merged cells can stay as HTML inside the markdown, or become a plain pipe table with the merged cells split out.">
+            <label for="md-merged">Merged-cell tables</label>
+            <select id="md-merged">
+              <option value="html" selected>Keep as HTML</option>
+              <option value="pipe">Pipe table</option>
+            </select>
+          </div>
+          <div class="setting-row" data-tip="For pasted HTML: equations from ChatGPT, Claude and other chat apps become $...$ math, or plain TeX text.">
+            <label for="md-math">Math</label>
+            <select id="md-math">
+              <option value="text">Plain TeX</option>
+              <option value="dollar" selected>$...$</option>
+            </select>
+          </div>
+          <div class="setting-row" data-tip="Obsidian writes highlights as ==text==. Other markdown has no highlight, so the text is kept plain.">
+            <label for="md-highlight">Highlight</label>
+            <select id="md-highlight">
+              <option value="plain" selected>Plain text</option>
+              <option value="equals">==text==</option>
+            </select>
+          </div>
+          <div class="control-group" data-tip="Tables, strikethrough, task lists, footnotes and math in the rendered HTML. Off renders plain CommonMark.">
+            <input type="checkbox" id="md-gfm" checked />
+            <label for="md-gfm">GitHub extensions</label>
+          </div>
+          <div class="control-group" data-tip="A quote that starts with Note:, Tip:, Important:, Warning: or Caution: becomes a > [!note] callout. Off by default, since it is a guess.">
+            <input type="checkbox" id="md-callouts" />
+            <label for="md-callouts">Turn Note: quotes into callouts</label>
+          </div>
+          <div class="control-group" data-tip="Wraps paragraphs and list items at the Text wrap width. Headings, quotes, tables and code are left alone.">
+            <input type="checkbox" id="md-wrap" />
+            <label for="md-wrap">Wrap markdown</label>
+          </div>
+        </section>
+
+        <section class="settings-section" aria-labelledby="settings-html">
+          <h3 id="settings-html">HTML</h3>
+          <p class="settings-note">The HTML and Preview tabs, and Copy HTML.</p>
+          <div class="control-group" data-tip="Pasting from Word, Google Docs, a web page or a chat app keeps its formatting: headings, lists, bold and tables come in as markdown, and the HTML is kept for the HTML output. Off pastes plain text only.">
+            <input type="checkbox" id="opt-rich-paste" checked />
+            <label for="opt-rich-paste">Keep formatting when pasting</label>
+          </div>
+          <div class="setting-row" data-tip="Clean HTML keeps the pasted formatting and removes the junk. Via markdown gives the same uniform HTML whatever you pasted. Clean HTML needs a rich paste; without one the HTML comes from the markdown.">
+            <label for="html-mode">HTML output</label>
+            <select id="html-mode">
+              <option value="clean" selected>Clean HTML (keep formatting)</option>
+              <option value="markdown">Via markdown (uniform)</option>
+            </select>
+          </div>
+          <div class="setting-row" data-tip="Safe keeps bold, italic, underline, strikethrough, colors, alignment, and list and table layout. All keeps every style except ones that can overlay the page or load content. None keeps no styles.">
+            <label for="html-styles">Inline styles</label>
+            <select id="html-styles">
+              <option value="safe" selected>Safe set</option>
+              <option value="all">All</option>
+              <option value="none">None</option>
+            </select>
+          </div>
+          <div class="setting-row" data-tip="Embedded images (data: URLs) can be very large.">
+            <label for="html-images">Images</label>
+            <select id="html-images">
+              <option value="keep" selected>Keep</option>
+              <option value="no-data">Drop embedded images</option>
+              <option value="none">Remove all</option>
+            </select>
+          </div>
+          <div class="control-group" data-tip="Text and background colors.">
+            <input type="checkbox" id="html-colors" checked />
+            <label for="html-colors">Keep colors</label>
+          </div>
+          <div class="control-group" data-tip="Font family and size. Word and Outlook pastes pin fonts that often clash with the document you paste into.">
+            <input type="checkbox" id="html-fonts" />
+            <label for="html-fonts">Keep fonts</label>
+          </div>
+          <div class="control-group" data-tip="Borders, padding and widths. Off keeps the table structure only.">
+            <input type="checkbox" id="html-table-style" checked />
+            <label for="html-table-style">Keep table styling</label>
+          </div>
+          <div class="control-group" data-tip="class and id attributes. They mean nothing outside the page they came from. Word's Mso classes are always removed.">
+            <input type="checkbox" id="html-classes" />
+            <label for="html-classes">Keep classes and IDs</label>
+          </div>
+          <div class="control-group" data-tip="Removes utm_ and similar tracking parameters from links.">
+            <input type="checkbox" id="html-tracking" checked />
+            <label for="html-tracking">Remove link tracking</label>
+          </div>
+          <div class="control-group" data-tip="b and i become strong and em, and empty paragraphs and bare spans go.">
+            <input type="checkbox" id="html-tidy" checked />
+            <label for="html-tidy">Tidy tags</label>
+          </div>
+          <p class="settings-note">Scripts, event handlers, javascript: links, iframes and forms are always removed.</p>
+        </section>
+      </div>
     </div>
 
     <div id="about-modal" class="modal" hidden>

@@ -174,7 +174,8 @@ button {
 }
 #btn-clear:hover { background: var(--clr-clear-h); }
 
-#btn-theme {
+/* Round icon buttons in the header: theme and settings. */
+.icon-btn {
   background: transparent;
   color: var(--clr-dim);
   border: 1px solid var(--clr-border);
@@ -189,7 +190,7 @@ button {
   justify-content: center;
   flex-shrink: 0;
 }
-#btn-theme:hover { border-color: var(--clr-mint); color: var(--clr-mint); }
+.icon-btn:hover { border-color: var(--clr-mint); color: var(--clr-mint); }
 
 /* Visible keyboard focus (accessibility) */
 button:focus-visible,
@@ -237,6 +238,19 @@ textarea:focus-visible {
 }
 
 .pane-label span { color: var(--clr-muted); font-weight: 400; }
+.pane-label-right { display: flex; align-items: center; gap: 10px; }
+
+/* Shown while a rich paste's HTML is held for the HTML output. */
+.pane-label .rich-chip {
+  color: var(--clr-mint);
+  border: 1px solid var(--clr-border);
+  border-radius: 999px;
+  padding: 1px 8px;
+  letter-spacing: 0.02em;
+  text-transform: none;
+  font-weight: 600;
+}
+.pane-label .rich-chip[hidden] { display: none; }
 
 textarea {
   flex: 1;
@@ -472,3 +486,57 @@ textarea::placeholder { color: var(--clr-border); }
   cursor: pointer;
 }
 .link-btn:hover { color: var(--clr-mint); text-decoration: underline; }
+
+/* Settings panel: the About modal's shell, wider and scrollable. */
+.settings-card {
+  width: min(560px, calc(100vw - 32px));
+  margin-top: 6vh;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+.settings-intro { color: var(--clr-dim); font-size: 13px; line-height: 1.5; margin-bottom: 6px; }
+.settings-section {
+  border-top: 1px solid var(--clr-border-sub);
+  padding-top: 14px;
+  margin-top: 14px;
+  display: grid;
+  gap: 8px;
+}
+.settings-section h3 {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--clr-text);
+}
+.settings-note { font-size: 12px; color: var(--clr-muted); line-height: 1.5; }
+.setting-row {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--clr-dim);
+}
+.setting-row select {
+  background: var(--clr-bg);
+  border: 1px solid var(--clr-border);
+  color: var(--clr-text);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.setting-row select:focus-visible { outline: 2px solid var(--clr-mint); outline-offset: 2px; }
+@media (max-width: 480px) {
+  .setting-row { grid-template-columns: 1fr; gap: 4px; }
+}
+
+/* Callouts in the Preview: > [!note] and GitHub alerts. */
+.md-body .callout {
+  border-left: 3px solid var(--clr-mint);
+  background: var(--clr-surface);
+  padding: 8px 12px;
+}
+.md-body .callout-title { margin-bottom: 4px; }
+

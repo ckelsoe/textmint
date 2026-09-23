@@ -1,8 +1,8 @@
 # Command line
 
 `textmint` is a CLI over the same cleaning passes (`src/pipeline.js`) and, for
-HTML, the same Rust engine (`engine::render`) the app uses, so its output matches
-the app's. It is the interface for scripts and AI agents: data in, data out, no
+HTML, the same Rust engine (`engine::render_with`, `html::clean_html`,
+`html::html_to_markdown`) the app uses, so its output matches the app's. It is the interface for scripts and AI agents: data in, data out, no
 GUI and no window running.
 
 ```
@@ -40,6 +40,29 @@ app's shipped defaults. Turn one off with its `--no-` flag:
 `markdown` and `html` keep markdown regardless of `--no-strip-markdown`: that
 path exists to preserve markup for the renderer, so it never strips it, and it
 also skips bullet normalization and wrapping.
+
+## HTML input
+
+Input that looks like HTML source (a saved web page, a Word export, a clipboard
+dump) is handled like the app's rich paste: `clean` and `markdown` convert it to
+markdown first (`textmint-render --from-html`), and `html` cleans it with its
+formatting kept (`textmint-render --clean-html`), using the app's default HTML
+settings.
+
+```
+--from-html           Treat the input as HTML even if it does not look like it
+--plain               Treat the input as plain text, never as HTML
+--flavor <f>          commonmark, github (default) or obsidian: the renderer's
+                      extensions, and whether ==highlights== are kept
+--html-mode <m>       For html from HTML input: clean (default) keeps the
+                      formatting; markdown renders the converted markdown
+```
+
+```sh
+pbpaste -Prefer html | textmint markdown          # a copied web page as markdown
+textmint html --html-mode markdown < page.html    # uniform HTML from any source
+textmint markdown --flavor obsidian < note.html   # keeps ==highlights==
+```
 
 ## How `open` works, and why it is safe
 

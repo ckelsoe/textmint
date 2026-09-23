@@ -9,6 +9,11 @@ pub mod textmint_core;
 // CLI) renders through the same engine. See src-tauri/src/engine.rs.
 pub mod engine;
 
+// Pasted HTML: clean it keeping its formatting, or convert it to markdown. Public
+// so textmint-render (the CLI's engine) reaches the same code. See
+// src-tauri/src/html.rs and docs/plans/html-input.md.
+pub mod html;
+
 // One-shot startup handoff for the CLI's `textmint open`. Ships in every build,
 // opt-in via TEXTMINT_OPEN. See src-tauri/src/startup.rs.
 mod startup;
@@ -46,6 +51,8 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         textmint_core::clean_text,
         engine::render_markdown,
+        html::html_clean,
+        html::html_markdown,
         startup::startup_open,
         update::update_channel,
         bridge::bridge_status,
@@ -56,6 +63,8 @@ pub fn run() {
     let builder = builder.invoke_handler(tauri::generate_handler![
         textmint_core::clean_text,
         engine::render_markdown,
+        html::html_clean,
+        html::html_markdown,
         startup::startup_open,
         update::update_channel
     ]);

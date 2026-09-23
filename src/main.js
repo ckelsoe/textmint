@@ -1,10 +1,10 @@
 // Textmint - clean & convert AI text. Runs entirely on-device.
 // Source is intentionally ASCII-only: every special codepoint is a \u escape
 // so the cleaning regexes can never be corrupted by copy/paste.
-import { clean, cleanToMarkdown } from "./pipeline.js";
+import { clean, cleanToMarkdown, looksLikeHtml, prefersPlainPaste } from "./pipeline.js";
 import { initBridge } from "./bridge.js";
 import { initUpdate } from "./update.js";
-import { CHECK_IDS as PREF_CHECKS } from "./controls.js";
+import { CHECK_IDS, SETTING_IDS, MD_PRESETS, HTML_OPTION_IDS, renderFlavorFor } from "./controls.js";
 
 (function () {
   const inputEl      = document.getElementById("input");
@@ -23,17 +23,43 @@ import { CHECK_IDS as PREF_CHECKS } from "./controls.js";
 
   function opt(id) { return document.getElementById(id).checked; }
   function num(id) { return parseInt(document.getElementById(id).value, 10) || 80; }
+  // A control's value by its type: a checkbox's checked state, else its value.
+  function val(id) {
+    const el = document.getElementById(id);
+    if (!el) return undefined;
+    return el.type === "checkbox" ? el.checked : el.value;
+  }
 
-  // Markdown -> HTML happens in Rust (engine::render_markdown), so the Rendered
-  // view and Copy HTML are the same bytes. Reached through the global Tauri
-  // invoke, the same channel the clipboard uses.
-  async function renderMarkdown(md) {
+  // The Rust engine, through the global Tauri invoke (the same channel the
+  // clipboard uses). null when there is no Tauri (a plain browser) or the call
+  // fails, which callers treat as "fall back".
+  async function engine(cmd, args) {
     const t = window.__TAURI__;
     const invoke = t && t.core && t.core.invoke;
+    if (!invoke) return null;
+    try { return await invoke(cmd, args); }
+    catch (e) { console.error("textmint: " + cmd + " failed:", e); return null; }
+  }
+
+  function renderFlavor() { return renderFlavorFor(val("md-flavor"), val("md-gfm")); }
+
+  // Markdown -> HTML happens in Rust (engine::render_with), so the Rendered
+  // view and Copy HTML are the same bytes.
+  async function renderMarkdown(md) {
     const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    if (!invoke) return "<pre>" + esc(md) + "</pre>"; // dev in a plain browser
-    try { return await invoke("render_markdown", { input: md }); }
-    catch (e) { return "<pre>render_markdown failed: " + esc(String(e)) + "</pre>"; }
+    const html = await engine("render_markdown", { input: md, flavor: renderFlavor() });
+    return html != null ? html : "<pre>" + esc(md) + "</pre>"; // dev in a plain browser
+  }
+
+  // Settings for the Rust HTML cleaner and the HTML-to-markdown converter. Key
+  // names match the serde structs in src-tauri/src/html.rs.
+  function htmlOpts() {
+    const o = { stripUnicode: opt("opt-strip-unicode") };
+    Object.keys(HTML_OPTION_IDS).forEach((id) => { o[HTML_OPTION_IDS[id]] = val(id); });
+    return o;
+  }
+  function mdConvertOpts() {
+    return { math: val("md-math"), mergedTables: val("md-merged") };
   }
 
   // --- Native clipboard (Tauri) with browser fallback -----------------------
@@ -73,7 +99,7 @@ import { CHECK_IDS as PREF_CHECKS } from "./controls.js";
   function savePrefs() {
     try {
       const p = {};
-      PREF_CHECKS.forEach((id) => { p[id] = document.getElementById(id).checked; });
+      CHECK_IDS.concat(SETTING_IDS).forEach((id) => { p[id] = val(id); });
       p["opt-wrap-width"] = document.getElementById("opt-wrap-width").value;
       localStorage.setItem(PREF_KEY, JSON.stringify(p));
     } catch (e) { /* storage unavailable - ignore */ }
@@ -83,9 +109,12 @@ import { CHECK_IDS as PREF_CHECKS } from "./controls.js";
     try {
       const p = JSON.parse(localStorage.getItem(PREF_KEY));
       if (!p) return;
-      PREF_CHECKS.forEach((id) => {
+      CHECK_IDS.concat(SETTING_IDS).forEach((id) => {
         const el = document.getElementById(id);
-        if (el && p[id] !== undefined) el.checked = p[id];
+        if (!el || p[id] === undefined) return;
+        if (el.type === "checkbox") el.checked = !!p[id];
+        // A select only takes a value it offers, so a stale pref cannot blank it.
+        else if (Array.from(el.options || []).some((o) => o.value === p[id])) el.value = p[id];
       });
       if (p["opt-wrap-width"]) document.getElementById("opt-wrap-width").value = p["opt-wrap-width"];
     } catch (e) { /* ignore */ }
@@ -106,8 +135,75 @@ import { CHECK_IDS as PREF_CHECKS } from "./controls.js";
       collapseBlank: opt("opt-collapse-blank"),
       wrap:          opt("opt-wrap"),
       wrapWidth:     num("opt-wrap-width"),
+      // Markdown style; "" (As written) is null, which leaves the markdown alone.
+      mdBullet:      val("md-bullet") || null,
+      mdEmphasis:    val("md-emphasis") || null,
+      mdHeading:     val("md-heading") || null,
+      mdFence:       val("md-fence") || null,
+      mdLinks:       val("md-links") || null,
+      mdHighlight:   val("md-highlight") || null,
+      mdCallouts:    !!val("md-callouts"),
+      mdWrap:        !!val("md-wrap"),
     };
   }
+
+  // --- Rich paste -------------------------------------------------------------
+  // A paste carrying HTML (Word, Google Docs, a web page, a chat app) goes into
+  // the input as markdown converted from that HTML, and the HTML itself is held
+  // for the HTML output's Clean HTML mode. Editing the input drops it, since the
+  // two no longer match. See docs/plans/html-input.md.
+  let heldHtml = null;
+  let applyingPaste = false; // our own insert, not a user edit
+  const richChip = document.getElementById("rich-chip");
+  const inputHint = document.getElementById("input-hint");
+
+  function setHeld(html) {
+    heldHtml = html || null;
+    richChip.hidden = !heldHtml;
+    inputHint.hidden = !!heldHtml;
+  }
+
+  // Replace the selection with text. Not execCommand("insertText"): WebKit
+  // treats that as typing, and macOS smart dashes and quotes then rewrite it
+  // (a table's |---| row came back as em dashes). setRangeText is not typing.
+  function insertText(text) {
+    applyingPaste = true;
+    try {
+      inputEl.focus();
+      inputEl.setRangeText(text, inputEl.selectionStart, inputEl.selectionEnd, "end");
+    } finally {
+      applyingPaste = false;
+    }
+  }
+
+  // Convert and insert. The HTML is held only when the markdown replaces the
+  // entire input, since only then does it describe the input. That is decided
+  // after the conversion, from the same selection the insert then uses, so a
+  // click or keystroke while the conversion runs cannot leave it held against
+  // part of the text.
+  async function pasteHtml(html) {
+    const md = await engine("html_markdown", { input: html, options: mdConvertOpts() });
+    if (md == null) return false;
+    const whole = inputEl.value === "" ||
+      (inputEl.selectionStart === 0 && inputEl.selectionEnd === inputEl.value.length);
+    insertText(md);
+    setHeld(whole ? html : null);
+    await render();
+    return true;
+  }
+
+  inputEl.addEventListener("paste", (e) => {
+    if (!val("opt-rich-paste") || !e.clipboardData) return;
+    const plain = e.clipboardData.getData("text/plain");
+    let html = e.clipboardData.getData("text/html");
+    if (html && prefersPlainPaste(html)) html = "";
+    if (!html && looksLikeHtml(plain)) html = plain;
+    if (!html || !(window.__TAURI__ && window.__TAURI__.core)) return; // plain paste
+    e.preventDefault();
+    pasteHtml(html).then((ok) => {
+      if (!ok) { insertText(plain); render(); }
+    });
+  });
 
   function updateStats(inText, outText) {
     statIn.textContent  = "In: " + inText.length.toLocaleString() + " chars";
@@ -145,6 +241,7 @@ import { CHECK_IDS as PREF_CHECKS } from "./controls.js";
   function actClear() {
     renderSeq++; // invalidate any in-flight render so it cannot repaint after clear
     inputEl.value = "";
+    setHeld(null);
     outputEl.value = "";
     outputMdEl.value = "";
     outputRendEl.innerHTML = "";
@@ -160,8 +257,14 @@ import { CHECK_IDS as PREF_CHECKS } from "./controls.js";
   // The HTML the Preview shows and Copy HTML puts on the clipboard: the cleaned
   // markdown run through the Rust renderer. One source of truth. render() passes
   // the markdown it already computed; other callers let it be recomputed.
+  // In Clean HTML mode with a rich paste held, that is the pasted HTML cleaned;
+  // otherwise the markdown rendered.
   async function htmlFor(md) {
     if (!inputEl.value) return "";
+    if (heldHtml && val("html-mode") === "clean") {
+      const h = await engine("html_clean", { input: heldHtml, options: htmlOpts() });
+      if (h != null) return h;
+    }
     return renderMarkdown(md != null ? md : cleanToMarkdown(inputEl.value, opts()));
   }
 
@@ -227,8 +330,55 @@ import { CHECK_IDS as PREF_CHECKS } from "./controls.js";
     render();
   });
 
+  // --- Settings panel -------------------------------------------------------
+  const settingsModal = document.getElementById("settings-modal");
+  function openSettings() {
+    settingsModal.hidden = false;
+    document.getElementById("settings-close").focus();
+  }
+  function closeSettings() {
+    if (settingsModal.hidden) return;
+    settingsModal.hidden = true;
+    document.getElementById("btn-settings").focus();
+  }
+  document.getElementById("btn-settings").addEventListener("click", openSettings);
+  settingsModal.addEventListener("click", (e) => {
+    if (e.target && e.target.dataset && e.target.dataset.close) closeSettings();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !settingsModal.hidden) closeSettings();
+  });
+
+  function applyPreset(flavor) {
+    const preset = MD_PRESETS[flavor];
+    if (!preset) return;
+    Object.keys(preset).forEach((id) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (el.type === "checkbox") el.checked = preset[id];
+      else el.value = preset[id];
+    });
+  }
+
+  // The paste-time settings (math, merged tables) shape the markdown already in
+  // the input; with a rich paste held, convert it again so the change shows.
+  async function reconvert() {
+    if (!heldHtml) return;
+    const md = await engine("html_markdown", { input: heldHtml, options: mdConvertOpts() });
+    if (md != null) inputEl.value = md;
+  }
+
+  settingsModal.addEventListener("change", async (e) => {
+    const id = e.target && e.target.id;
+    if (id === "md-flavor") applyPreset(e.target.value);
+    savePrefs();
+    if (id === "md-math" || id === "md-merged" || id === "md-flavor") await reconvert();
+    render();
+  });
+
   let debounceTimer;
   inputEl.addEventListener("input", () => {
+    if (!applyingPaste && heldHtml) setHeld(null); // an edit: the HTML no longer matches
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(render, 400);
   });
@@ -287,7 +437,11 @@ import { CHECK_IDS as PREF_CHECKS } from "./controls.js";
       const invoke = t && t.core && t.core.invoke;
       if (!invoke) return;
       const text = await invoke("startup_open");
-      if (text != null && text !== "") { inputEl.value = String(text); render(); }
+      if (text == null || text === "") return;
+      // An HTML file handed over by `textmint open` is a rich paste, taken in
+      // the same way as one from the clipboard.
+      if (looksLikeHtml(String(text)) && (await pasteHtml(String(text)))) return;
+      inputEl.value = String(text); render();
     } catch (e) { /* no handoff; ignore */ }
   })();
 
@@ -296,7 +450,8 @@ import { CHECK_IDS as PREF_CHECKS } from "./controls.js";
   // the same named actions the buttons do, so it can never behave differently.
   // runClean is the async render that fills every Output view.
   initBridge({
-    inputEl, outputEl, applyTheme, savePrefs, showView,
+    inputEl, outputEl, outputMdEl, applyTheme, savePrefs, showView,
     runClean: render, actClear, actCopy, actCopyHtml, htmlFor,
+    pasteHtml, applyPreset, hasHeldHtml: () => !!heldHtml,
   });
 })();

@@ -84,3 +84,41 @@ test("html renders through the Rust engine", { skip: haveRender ? false : "textm
   assert.ok(r.stdout.includes("<table>"), r.stdout);
   assert.ok(r.stdout.includes("line-through"), "strikethrough must be a style, not <del>:\n" + r.stdout);
 });
+
+// --- HTML input (docs/plans/html-input.md) --------------------------------------
+// These need the textmint-render binary, like the html tests above.
+const HAVE_RENDER = ["release", "debug"].some((b) =>
+  existsSync(join(ROOT, "src-tauri", "target", b, "textmint-render")));
+const WORD_HTML = "<p class=MsoNormal>Hi <b>there</b></p>" +
+  "<p class=MsoListParagraph style='mso-list:l0 level1 lfo1'><![if !supportLists]><span>-<span> </span></span><![endif]>One</p>";
+
+test("HTML input is detected and converted for markdown", { skip: !HAVE_RENDER }, () => {
+  const r = run(["markdown"], WORD_HTML);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stdout, "Hi **there**\n\n- One");
+});
+
+test("html from HTML input keeps formatting, or renders the markdown", { skip: !HAVE_RENDER }, () => {
+  const clean = run(["html"], "<p>a <span style=\"color:red\">b</span></p>");
+  assert.equal(clean.status, 0, clean.stderr);
+  assert.ok(clean.stdout.includes("color: red"), clean.stdout);
+  const viaMd = run(["html", "--html-mode", "markdown"], "<p>a <span style=\"color:red\">b</span></p>");
+  assert.ok(!viaMd.stdout.includes("color"), viaMd.stdout);
+  assert.ok(viaMd.stdout.includes("<p>a b</p>"), viaMd.stdout);
+});
+
+test("--plain keeps HTML-looking input as text", { skip: !HAVE_RENDER }, () => {
+  const r = run(["markdown", "--plain"], "<p>x</p>");
+  assert.equal(r.stdout, "<p>x</p>");
+});
+
+test("--flavor obsidian keeps highlights; github drops the markers", () => {
+  assert.equal(run(["markdown", "--flavor", "obsidian"], "==hi==").stdout, "==hi==");
+  assert.equal(run(["markdown"], "==hi==").stdout, "hi");
+});
+
+test("--flavor rejects an unknown value", () => {
+  const r = run(["markdown", "--flavor", "nope"], "x");
+  assert.notEqual(r.status, 0);
+  assert.ok(r.stderr.includes("--flavor"), r.stderr);
+});

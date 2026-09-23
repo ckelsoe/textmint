@@ -7,18 +7,22 @@
 // one source of truth for the rich paste.
 //
 // Two deliberate departures from a plain render:
-//   1. Raw HTML in the input is dropped, not passed through. The result goes
-//      straight into a preview div's innerHTML and onto the clipboard, so a
-//      pasted `<script>` must never survive. Filtering the Html/InlineHtml
-//      events before the writer is the whole sanitization; no DOM scrubber.
-//      Link and image schemes are filtered too, so a paste cannot make the app
-//      reach the network or run script (the CSP is the hard backstop).
+//   1. Raw HTML never passes through as written. The result goes straight into
+//      a preview div's innerHTML and onto the clipboard, so a pasted `<script>`
+//      must never survive. Inline raw HTML is dropped. A raw HTML block is run
+//      through a strict ammonia allowlist (table structure and inline
+//      formatting, no images, no attributes beyond colspan/rowspan/href): that
+//      is how a table with merged cells, kept as HTML when pasted HTML became
+//      markdown, still renders. Link and image schemes are filtered too, so a
+//      paste cannot make the app reach the network or run script (the CSP is
+//      the hard backstop).
 //   2. Strikethrough is emitted as an inline style, not `<del>`. Word's HTML
 //      importer treats `<del>` as a tracked deletion and removes the text from
 //      the document body; Outlook does not render it struck at all. An inline
 //      style survives both. Verified 2026-09-20 against the retired JS path.
 
-use pulldown_cmark::{html, Event, Options, Parser, Tag};
+use pulldown_cmark::{html, BlockQuoteKind, CowStr, Event, Options, Parser, Tag, TagEnd};
+use std::sync::OnceLock;
 
 /// Whether a link or image URL is safe to keep. Textmint promises text never
 /// leaves the machine, so a pasted link or image must not be able to make the
@@ -64,63 +68,462 @@ fn sanitize_url(url: pulldown_cmark::CowStr<'_>, is_image: bool) -> pulldown_cma
     }
 }
 
-/// Render already-cleaned markdown to HTML. Pure and browser-free, so the tests
-/// below drive it directly.
+/// Render already-cleaned markdown to HTML with the GitHub flavour, the
+/// default. Pure and browser-free, so the tests below drive it directly.
 pub fn render(markdown: &str) -> String {
+    render_with(markdown, Flavor::Github)
+}
+
+/// The markdown dialect to render. Serde names match the frontend's values.
+#[derive(serde::Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum Flavor {
+    /// Plain CommonMark: no tables, strikethrough, task lists, math.
+    Commonmark,
+    /// GitHub-flavored markdown, with > [!NOTE] alerts. The default.
+    Github,
+    /// GitHub plus Obsidian's callouts, wikilinks, ==highlight==, %%comments%%.
+    Obsidian,
+}
+
+impl Flavor {
+    /// Parse a CLI or JSON value; None for anything unknown.
+    pub fn parse(s: &str) -> Option<Flavor> {
+        match s {
+            "commonmark" => Some(Flavor::Commonmark),
+            "github" => Some(Flavor::Github),
+            "obsidian" => Some(Flavor::Obsidian),
+            _ => None,
+        }
+    }
+}
+
+fn options_for(flavor: Flavor) -> Options {
     let mut options = Options::empty();
-    options.insert(Options::ENABLE_TABLES);
-    options.insert(Options::ENABLE_STRIKETHROUGH);
-    options.insert(Options::ENABLE_TASKLISTS);
+    // Frontmatter is parsed as a metadata block, which the writer skips, so a
+    // note's YAML header never shows up as a rule and a paragraph.
+    options.insert(Options::ENABLE_YAML_STYLE_METADATA_BLOCKS);
+    if flavor != Flavor::Commonmark {
+        options.insert(Options::ENABLE_TABLES);
+        options.insert(Options::ENABLE_STRIKETHROUGH);
+        options.insert(Options::ENABLE_TASKLISTS);
+        options.insert(Options::ENABLE_FOOTNOTES);
+        options.insert(Options::ENABLE_MATH);
+        options.insert(Options::ENABLE_GFM); // > [!NOTE] alerts
+    }
+    options
+}
 
-    // Drop raw-HTML events so pasted markup never reaches the div's innerHTML or
-    // the clipboard (push_html writes Html/InlineHtml verbatim with no escaping,
-    // so removing them from the stream is the sanitization), and strip any
-    // unsafe link or image scheme.
-    let parser = Parser::new_ext(markdown, options).filter_map(|event| match event {
-        Event::Html(_) | Event::InlineHtml(_) => None,
-        Event::Start(Tag::Link {
-            link_type,
-            dest_url,
-            title,
-            id,
-        }) => Some(Event::Start(Tag::Link {
-            link_type,
-            dest_url: sanitize_url(dest_url, false),
-            title,
-            id,
-        })),
-        Event::Start(Tag::Image {
-            link_type,
-            dest_url,
-            title,
-            id,
-        }) => Some(Event::Start(Tag::Image {
-            link_type,
-            dest_url: sanitize_url(dest_url, true),
-            title,
-            id,
-        })),
-        other => Some(other),
-    });
+/// The strict allowlist for a raw HTML block: structure and inline formatting,
+/// nothing that loads or runs.
+fn block_sanitizer() -> &'static ammonia::Builder<'static> {
+    static B: OnceLock<ammonia::Builder<'static>> = OnceLock::new();
+    B.get_or_init(|| {
+        let mut b = ammonia::Builder::empty();
+        b.tags(
+            [
+                "table",
+                "thead",
+                "tbody",
+                "tfoot",
+                "tr",
+                "td",
+                "th",
+                "caption",
+                "colgroup",
+                "col",
+                "p",
+                "br",
+                "strong",
+                "em",
+                "b",
+                "i",
+                "u",
+                "s",
+                "sub",
+                "sup",
+                "code",
+                "pre",
+                "ul",
+                "ol",
+                "li",
+                "blockquote",
+                "a",
+                "mark",
+            ]
+            .into_iter()
+            .collect(),
+        )
+        .tag_attributes(
+            [
+                ("td", ["colspan", "rowspan"].into_iter().collect()),
+                ("th", ["colspan", "rowspan"].into_iter().collect()),
+                ("a", ["href"].into_iter().collect()),
+            ]
+            .into_iter()
+            .collect(),
+        )
+        .clean_content_tags(["script", "style"].into_iter().collect())
+        .url_schemes(["http", "https", "mailto"].into_iter().collect())
+        .link_rel(None)
+        .strip_comments(true);
+        b
+    })
+}
 
-    let mut out = String::new();
-    html::push_html(&mut out, parser);
+fn escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
 
-    // The only `<del>` in the output is from strikethrough: raw HTML is already
-    // dropped and any user angle bracket is escaped to `&lt;`, so a plain
-    // replace cannot touch anything else.
-    out.replace("<del>", "<span style=\"text-decoration: line-through\">")
+fn capitalize(s: &str) -> String {
+    let mut c = s.chars();
+    match c.next() {
+        Some(f) => f.to_uppercase().collect::<String>() + &c.as_str().to_lowercase(),
+        None => String::new(),
+    }
+}
+
+/// Text with Obsidian's inline extras resolved: %%comments%% removed,
+/// [[target|alias]] and ![[embed]] to their display text, ==x== to <mark>.
+/// Returns events; the <mark> tags are ours, added after raw HTML was filtered.
+fn obsidian_inline(text: &str) -> Vec<Event<'static>> {
+    let mut out = Vec::new();
+    let mut plain = String::new();
+    let mut rest = text;
+    while !rest.is_empty() {
+        if let Some(after) = rest.strip_prefix("%%") {
+            if let Some(end) = after.find("%%") {
+                rest = &after[end + 2..];
+                continue;
+            }
+        }
+        let embed = rest.starts_with("![[");
+        if embed || rest.starts_with("[[") {
+            let start = if embed { 3 } else { 2 };
+            if let Some(end) = rest[start..].find("]]") {
+                let inner = &rest[start..start + end];
+                if !inner.contains('\n') {
+                    let shown = inner
+                        .split('|')
+                        .nth(1)
+                        .unwrap_or(inner.split('|').next().unwrap_or(""));
+                    plain.push_str(shown.trim());
+                    rest = &rest[start + end + 2..];
+                    continue;
+                }
+            }
+        }
+        if let Some(after) = rest.strip_prefix("==") {
+            if let Some(end) = after.find("==") {
+                let inner = &after[..end];
+                if !inner.is_empty()
+                    && !inner.starts_with(' ')
+                    && !inner.ends_with(' ')
+                    && !inner.contains('\n')
+                {
+                    if !plain.is_empty() {
+                        out.push(Event::Text(CowStr::from(std::mem::take(&mut plain))));
+                    }
+                    out.push(Event::InlineHtml("<mark>".into()));
+                    out.push(Event::Text(CowStr::from(inner.to_string())));
+                    out.push(Event::InlineHtml("</mark>".into()));
+                    rest = &after[end + 2..];
+                    continue;
+                }
+            }
+        }
+        let ch = rest.chars().next().unwrap();
+        plain.push(ch);
+        rest = &rest[ch.len_utf8()..];
+    }
+    if !plain.is_empty() {
+        out.push(Event::Text(CowStr::from(plain)));
+    }
+    out
+}
+
+/// `[!type] Title` at the start of a quote's first line, Obsidian style.
+fn callout_marker(text: &str) -> Option<(String, String)> {
+    let t = text.strip_prefix("[!")?;
+    let end = t.find(']')?;
+    let kind = &t[..end];
+    if kind.is_empty() || !kind.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
+        return None;
+    }
+    let title = t[end + 1..]
+        .trim_start_matches(['+', '-'])
+        .trim()
+        .to_string();
+    Some((kind.to_ascii_lowercase(), title))
+}
+
+fn callout_open(kind: &str, title: &str) -> String {
+    let label = if title.is_empty() {
+        capitalize(kind)
+    } else {
+        title.to_string()
+    };
+    format!(
+        "<blockquote class=\"callout callout-{}\">\n<p class=\"callout-title\"><strong>{}</strong></p>\n",
+        escape(kind),
+        escape(&label)
+    )
+}
+
+/// Render already-cleaned markdown to HTML for a flavor.
+pub fn render_with(markdown: &str, flavor: Flavor) -> String {
+    let events = sanitize_events(Parser::new_ext(markdown, options_for(flavor)));
+    let events = rewrite_callouts(events, flavor == Flavor::Obsidian);
+
+    let mut html_out = String::new();
+    html::push_html(&mut html_out, events.into_iter());
+
+    // The only `<del>` in the output is from strikethrough: raw inline HTML is
+    // dropped, block HTML is sanitized without <del>, and any user angle
+    // bracket is escaped to `&lt;`, so a plain replace cannot touch anything
+    // else.
+    html_out
+        .replace("<del>", "<span style=\"text-decoration: line-through\">")
         .replace("</del>", "</span>")
 }
 
+/// Pass 1: drop inline raw HTML, sanitize raw HTML blocks, scrub URLs, and
+/// coalesce adjacent text (the parser splits text at brackets, which would
+/// hide a [[wikilink]] or a [!note] marker across events).
+fn sanitize_events<'a>(parser: impl Iterator<Item = Event<'a>>) -> Vec<Event<'a>> {
+    let mut events: Vec<Event> = Vec::new();
+    let mut block_html: Option<String> = None;
+    for event in parser {
+        match event {
+            Event::Start(Tag::HtmlBlock) => block_html = Some(String::new()),
+            Event::End(TagEnd::HtmlBlock) => {
+                let raw = block_html.take().unwrap_or_default();
+                let clean = block_sanitizer().clean(&raw).to_string();
+                if !clean.trim().is_empty() {
+                    events.push(Event::Html(format!("{clean}\n").into()));
+                }
+            }
+            Event::Html(h) => {
+                if let Some(buf) = block_html.as_mut() {
+                    buf.push_str(&h);
+                }
+            }
+            Event::InlineHtml(_) => {}
+            Event::Start(Tag::Link {
+                link_type,
+                dest_url,
+                title,
+                id,
+            }) => events.push(Event::Start(Tag::Link {
+                link_type,
+                dest_url: sanitize_url(dest_url, false),
+                title,
+                id,
+            })),
+            Event::Start(Tag::Image {
+                link_type,
+                dest_url,
+                title,
+                id,
+            }) => events.push(Event::Start(Tag::Image {
+                link_type,
+                dest_url: sanitize_url(dest_url, true),
+                title,
+                id,
+            })),
+            Event::Text(t) => match events.last_mut() {
+                Some(Event::Text(prev)) => {
+                    *prev = CowStr::from(format!("{prev}{t}"));
+                }
+                _ => events.push(Event::Text(t)),
+            },
+            other => events.push(other),
+        }
+    }
+    events
+}
+
+/// An Obsidian callout opening a quote: `> [!type] Title` as the first line of
+/// its first paragraph. Returns the kind, the title, and the rest of that first
+/// text event after the marker line.
+fn obsidian_callout_at(events: &[Event], i: usize) -> Option<(String, String, String)> {
+    let (Some(Event::Start(Tag::Paragraph)), Some(Event::Text(t))) =
+        (events.get(i + 1), events.get(i + 2))
+    else {
+        return None;
+    };
+    let first = t.split('\n').next().unwrap_or("");
+    let (kind, title) = callout_marker(first)?;
+    Some((kind, title, t[first.len()..].trim_start().to_string()))
+}
+
+/// Pass 2: callouts (GitHub alerts in both flavors, any [!type] in Obsidian)
+/// and Obsidian's inline extras. Our own tags are added here, after the
+/// raw-HTML filter, so they are the only HTML that gets through.
+fn rewrite_callouts(events: Vec<Event>, obsidian: bool) -> Vec<Event> {
+    let mut out: Vec<Event> = Vec::with_capacity(events.len());
+    let mut quotes: Vec<bool> = Vec::new(); // per open blockquote: is it a callout?
+    let mut in_code = false; // fenced or indented code is never rewritten
+    let mut i = 0;
+    while i < events.len() {
+        match &events[i] {
+            Event::Start(Tag::BlockQuote(Some(kind))) => {
+                let k = match kind {
+                    BlockQuoteKind::Note => "note",
+                    BlockQuoteKind::Tip => "tip",
+                    BlockQuoteKind::Important => "important",
+                    BlockQuoteKind::Warning => "warning",
+                    BlockQuoteKind::Caution => "caution",
+                };
+                out.push(Event::Html(callout_open(k, "").into()));
+                quotes.push(true);
+            }
+            Event::Start(Tag::BlockQuote(None)) => {
+                let callout = if obsidian {
+                    obsidian_callout_at(&events, i)
+                } else {
+                    None
+                };
+                let Some((kind, title, body)) = callout else {
+                    quotes.push(false);
+                    out.push(events[i].clone());
+                    i += 1;
+                    continue;
+                };
+                out.push(Event::Html(callout_open(&kind, &title).into()));
+                quotes.push(true);
+                // Skip the quote start, the paragraph start and the marker
+                // text; the title line ends at a soft break.
+                let mut j = i + 3;
+                if body.is_empty() && matches!(events.get(j), Some(Event::SoftBreak)) {
+                    j += 1;
+                }
+                if body.is_empty() && matches!(events.get(j), Some(Event::End(TagEnd::Paragraph))) {
+                    i = j + 1; // the marker paragraph held nothing else
+                    continue;
+                }
+                out.push(Event::Start(Tag::Paragraph));
+                if !body.is_empty() {
+                    out.extend(obsidian_inline(&body));
+                }
+                i = j;
+                continue;
+            }
+            Event::End(TagEnd::BlockQuote(_)) => {
+                if quotes.pop() == Some(true) {
+                    out.push(Event::Html("</blockquote>\n".into()));
+                } else {
+                    out.push(events[i].clone());
+                }
+            }
+            Event::Start(Tag::CodeBlock(_)) => {
+                in_code = true;
+                out.push(events[i].clone());
+            }
+            Event::End(TagEnd::CodeBlock) => {
+                in_code = false;
+                out.push(events[i].clone());
+            }
+            Event::Text(t) if obsidian && !in_code => out.extend(obsidian_inline(t)),
+            other => out.push(other.clone()),
+        }
+        i += 1;
+    }
+    out
+}
+
 #[tauri::command]
-pub fn render_markdown(input: String) -> String {
-    render(&input)
+pub fn render_markdown(input: String, flavor: Option<Flavor>) -> String {
+    render_with(&input, flavor.unwrap_or(Flavor::Github))
 }
 
 #[cfg(test)]
 mod tests {
-    use super::render;
+    use super::{render, render_with, Flavor};
+
+    #[test]
+    fn github_alerts_render_as_labelled_callouts() {
+        let html = render("> [!NOTE]\n> Read this.");
+        assert!(html.contains("class=\"callout callout-note\""), "{html}");
+        assert!(html.contains("<strong>Note</strong>"), "{html}");
+        assert!(html.contains("Read this."), "{html}");
+        assert!(!html.contains("[!NOTE]"), "{html}");
+    }
+
+    #[test]
+    fn obsidian_callouts_take_any_type_and_a_title() {
+        let html = render_with("> [!question] Why so?\n> Because.", Flavor::Obsidian);
+        assert!(html.contains("callout-question"), "{html}");
+        assert!(html.contains("<strong>Why so?</strong>"), "{html}");
+        assert!(html.contains("<p>Because.</p>"), "{html}");
+        // GitHub does not know [!question]; it stays a plain quote there.
+        let gh = render("> [!question] Why so?\n> Because.");
+        assert!(gh.contains("<blockquote>"), "{gh}");
+    }
+
+    #[test]
+    fn obsidian_inline_extras() {
+        let html = render_with(
+            "See [[Target Note|the note]] and [[Other]] and ==this== %%hidden%% here.",
+            Flavor::Obsidian,
+        );
+        assert!(
+            html.contains("See the note and Other and <mark>this</mark>  here."),
+            "{html}"
+        );
+        assert!(!html.contains("[["), "{html}");
+        assert!(!html.contains("hidden"), "{html}");
+        // Outside Obsidian they are left as written.
+        let gh = render("==this== [[Other]]");
+        assert!(gh.contains("==this=="), "{gh}");
+    }
+
+    #[test]
+    fn obsidian_extras_do_not_reach_into_code() {
+        let html = render_with("`==x== [[y]]`\n\n```\n%%keep%%\n```", Flavor::Obsidian);
+        assert!(html.contains("<code>==x== [[y]]</code>"), "{html}");
+        assert!(html.contains("%%keep%%"), "{html}");
+    }
+
+    #[test]
+    fn frontmatter_is_not_rendered() {
+        let html = render_with("---\ntitle: Note\ntags: [a]\n---\n\nBody", Flavor::Obsidian);
+        assert!(!html.contains("title:"), "{html}");
+        assert!(!html.contains("<hr"), "{html}");
+        assert!(html.contains("<p>Body</p>"), "{html}");
+    }
+
+    #[test]
+    fn commonmark_has_no_tables_or_strikethrough() {
+        let md = "| a | b |\n|---|---|\n| 1 | 2 |\n\n~~x~~";
+        let cm = render_with(md, Flavor::Commonmark);
+        assert!(!cm.contains("<table>"), "{cm}");
+        assert!(!cm.contains("line-through"), "{cm}");
+        let gh = render(md);
+        assert!(gh.contains("<table>"), "{gh}");
+    }
+
+    #[test]
+    fn a_merged_cell_table_kept_as_html_renders_safely() {
+        let md = "<table><tr><th colspan=\"2\" onclick=\"x()\">Region</th></tr><tr><td>a</td><td>b</td></tr></table>\n\n<p>after <script>alert(1)</script></p>";
+        let html = render(md);
+        assert!(html.contains("<th colspan=\"2\">Region</th>"), "{html}");
+        assert!(!html.contains("onclick"), "{html}");
+        assert!(!html.contains("<script"), "{html}");
+        assert!(
+            !html.contains("alert(1)"),
+            "script content goes with the tag: {html}"
+        );
+    }
+
+    #[test]
+    fn math_renders_as_a_marked_span() {
+        let html = render("Area $\\pi r^2$ here.");
+        assert!(html.contains("math-inline"), "{html}");
+    }
 
     #[test]
     fn renders_headings_lists_and_code() {

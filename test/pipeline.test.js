@@ -354,3 +354,130 @@ test("cleanToMarkdown fences a ragged table so no cell is lost", () => {
   assert.ok(md.includes("```"), "a ragged table must be fenced:\n" + md);
   assert.ok(md.includes("| 1 | 2 | 3 | 4 |"), "every cell must survive:\n" + md);
 });
+
+// --- Markdown style, Obsidian, frontmatter (docs/plans/html-input.md) --------
+
+const MD_BASE = { joinLines: true, stripIndent: true, collapseBlank: true };
+
+test("restyle leaves markdown alone when no style is set", () => {
+  const md = "* a\n\n__b__ and _c_\n\n```\nx\n```";
+  assert.equal(P.cleanToMarkdown(md, MD_BASE), md);
+});
+
+test("bullet marker restyles list items, not rules or bold", () => {
+  const out = P.cleanToMarkdown("* one\n  + two\n\n* * *\n\n**bold** start", { ...MD_BASE, mdBullet: "-" });
+  assert.equal(out, "- one\n  - two\n\n* * *\n\n**bold** start");
+});
+
+test("emphasis restyle skips words, URLs, link targets and code", () => {
+  const md = "a **b** *c* snake_case https://x.com/a_b_c/ [l](https://y.com/p_q_r) `_k_`";
+  assert.equal(P.cleanToMarkdown(md, { ...MD_BASE, mdEmphasis: "underscore" }),
+    "a __b__ _c_ snake_case https://x.com/a_b_c/ [l](https://y.com/p_q_r) `_k_`");
+  assert.equal(P.cleanToMarkdown("__b__ and _c_ and a_b_c", { ...MD_BASE, mdEmphasis: "asterisk" }),
+    "**b** and *c* and a_b_c");
+});
+
+test("heading style converts between # and underlined", () => {
+  assert.equal(P.cleanToMarkdown("# One\n\n## Two\n\n### Three", { ...MD_BASE, mdHeading: "setext" }),
+    "One\n===\n\nTwo\n---\n\n### Three");
+  assert.equal(P.cleanToMarkdown("One\n===\n\nTwo\n---", { ...MD_BASE, mdHeading: "atx" }),
+    "# One\n\n## Two");
+});
+
+test("fence style switches code fences to tildes", () => {
+  assert.equal(P.cleanToMarkdown("```js\nconst a = 1;\n```", { ...MD_BASE, mdFence: "tilde" }),
+    "~~~js\nconst a = 1;\n~~~");
+});
+
+test("links convert to reference style and back", () => {
+  const inline = "See [a](https://a.com \"A\") and [b](https://b.com) and [a2](https://a.com \"A\").";
+  const ref = P.cleanToMarkdown(inline, { ...MD_BASE, mdLinks: "reference" });
+  assert.equal(ref, "See [a][1] and [b][2] and [a2][1].\n\n[1]: https://a.com \"A\"\n[2]: https://b.com");
+  assert.equal(P.cleanToMarkdown(ref, { ...MD_BASE, mdLinks: "inline" }),
+    "See [a](https://a.com \"A\") and [b](https://b.com) and [a2](https://a.com \"A\").");
+});
+
+test("highlight can be dropped to plain text", () => {
+  assert.equal(P.cleanToMarkdown("==hi== and a == b", { ...MD_BASE, mdHighlight: "plain" }), "hi and a == b");
+  assert.equal(P.cleanToMarkdown("==hi==", { ...MD_BASE, mdHighlight: "equals" }), "==hi==");
+});
+
+test("callouts are opt-in and turn Note: quotes into [!note]", () => {
+  const md = "> **Note:** read this\n> more";
+  assert.equal(P.cleanToMarkdown(md, MD_BASE), md);
+  assert.equal(P.cleanToMarkdown(md, { ...MD_BASE, mdCallouts: true }), "> [!note]\n> read this\n> more");
+});
+
+test("markdown wrap wraps paragraphs and items, not headings or tables", () => {
+  const long = "word ".repeat(30).trim();
+  const out = P.cleanToMarkdown("# " + long + "\n\n" + long + "\n\n- " + long, { mdWrap: true, wrapWidth: 40 });
+  const lines = out.split("\n");
+  assert.equal(lines[0], "# " + long, "headings are not wrapped");
+  assert.ok(lines.slice(1).every((l) => l.length <= 40), out);
+  assert.ok(out.includes("\n  word"), "list continuation is indented: " + out);
+});
+
+test("nested lists keep their nesting on the markdown path", () => {
+  const md = "- First\n  - Nested\n    - Deeper\n- Second\n\n1. One\n2. Two";
+  assert.equal(P.cleanToMarkdown(md, MD_BASE), md);
+  assert.equal(P.cleanToMarkdown("  - a\n    - b\n  - c", MD_BASE), "- a\n  - b\n- c");
+});
+
+test("frontmatter is protected, kept in markdown and dropped from text", () => {
+  const note = "---\ntitle: Note\ntags:\n  - a\n---\n\nBody line one\nline two.";
+  const md = P.cleanToMarkdown(note, MD_BASE);
+  assert.ok(md.startsWith("---\ntitle: Note\ntags:\n  - a\n---"), md);
+  const text = P.clean(note, { ...MD_BASE, stripMarkdown: true });
+  assert.ok(!text.includes("title:"), text);
+  assert.ok(text.startsWith("Body"), text);
+});
+
+test("the text path reads Obsidian syntax as plain text", () => {
+  const md = "See [[Target|the note]] and ![[img.png]] and ==this== %%secret%%\n\n> [!warning] Careful\n> body";
+  const out = P.clean(md, { stripMarkdown: true });
+  assert.ok(out.includes("See the note and img.png and this"), out);
+  assert.ok(!out.includes("secret"), out);
+  assert.ok(out.includes("Careful:"), out);
+});
+
+test("looksLikeHtml tells HTML source from prose", () => {
+  assert.equal(P.looksLikeHtml("<p>hello</p>"), true);
+  assert.equal(P.looksLikeHtml("  <!DOCTYPE html><html>"), true);
+  assert.equal(P.looksLikeHtml("<div class=\"a\">x</div>"), true);
+  assert.equal(P.looksLikeHtml("a < b and <c>"), false);
+  assert.equal(P.looksLikeHtml("<nope> not html"), false);
+  assert.equal(P.looksLikeHtml("# Heading\n\n<p>inline</p>"), false);
+});
+
+test("stripUnicode matches the Rust twin on boundary characters", async () => {
+  // src-tauri/src/html/tests.rs asserts the same fixture against strip_unicode.
+  const { readFileSync } = await import("node:fs");
+  const f = JSON.parse(readFileSync(new URL("./fixtures/unicode-parity.json", import.meta.url), "utf8"));
+  assert.equal(P.stripUnicode(f.input), f.expected);
+  assert.ok(f.expected.includes("\u2713"), "the check mark is not a pictograph and stays");
+  assert.ok(!f.expected.includes("\u2714"), "the heavy check mark is one and goes");
+});
+
+test("prefersPlainPaste spots editor code but not documents", () => {
+  const vscode = "<div style=\"font-family: Menlo; white-space: pre;\"><div><span>def f():</span></div></div>";
+  assert.equal(P.prefersPlainPaste(vscode), true);
+  assert.equal(P.prefersPlainPaste("<p>Hello <b>world</b></p>"), false);
+  assert.equal(P.prefersPlainPaste("<pre style=\"white-space: pre\">x</pre><p>doc</p>"), false);
+});
+
+test("link restyle leaves inline code alone", () => {
+  const md = "Use `[a](b)` syntax, and [real](https://x.com).";
+  assert.equal(P.cleanToMarkdown(md, { ...MD_BASE, mdLinks: "reference" }),
+    "Use `[a](b)` syntax, and [real][1].\n\n[1]: https://x.com");
+  assert.equal(P.cleanToMarkdown("Write `[t][1]` for a ref.\n\n[1]: https://y.com", { ...MD_BASE, mdLinks: "inline" }),
+    "Write `[t][1]` for a ref.");
+});
+
+test("join lines leaves quote lines, and so callouts, intact", () => {
+  const q = "> Note: first line here?\n> second line.";
+  assert.equal(P.cleanToMarkdown(q, MD_BASE), q);
+  // The text path strips the quote marker first, so it joins clean prose.
+  assert.equal(P.clean(q, { joinLines: true, stripMarkdown: true }), "Note: first line here? second line.");
+  const callout = "> [!question] Why?\n> Because.";
+  assert.equal(P.cleanToMarkdown(callout, MD_BASE), callout);
+});

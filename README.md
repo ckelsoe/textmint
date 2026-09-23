@@ -23,6 +23,12 @@ not a few hundred.
   lines, strip leading indentation, hard-wrap at a chosen width.
 - **Copy** as plain text, or **Copy HTML** — converts markdown to rich text so it pastes
   into Outlook or Word with bold, bullets, and headers intact.
+- **Rich paste** — paste from Word, Google Docs, a web page or a chat app and the
+  formatting comes with it: headings, lists, bold and tables arrive as markdown, and the
+  HTML output keeps the source's formatting with the junk (Word's `mso-*` styles, fake
+  bullets, tracking parameters) removed.
+- **Settings** for each output: markdown flavor (CommonMark, GitHub, Obsidian) and style,
+  and what the HTML keeps (styles, fonts, colors, table styling, images).
 - Live preview, saved preferences, dark/light mode, keyboard shortcuts
   (`Cmd+Enter` to clean, `Cmd+Shift+C` to copy).
 

@@ -1,6 +1,6 @@
 [package]
 name = "textmint"
-version = "0.4.4"
+version = "0.5.0"
 description = "Textmint - clean & convert AI text, entirely on-device"
 authors = ["Charles Kelsoe"]
 edition = "2021"
@@ -37,4 +37,8 @@ tauri-plugin-updater = "2"
 # Opens external URLs in the default browser: the About box's repo and issue
 # links, and the MSI download page. Scoped to the repo in capabilities.
 tauri-plugin-opener = "2"
+ammonia = "4.2.0"
+htmd = "0.5.5"
+html5ever = "0.38"
+markup5ever_rcdom = "0.38"
 
