@@ -1,9 +1,10 @@
 // In-app updates. ASCII only, same rule as the rest of src/.
 //
 // Two behaviours, chosen at runtime by the Rust `update_channel` command:
-//   - "auto"     (macOS, the Windows NSIS per-user install): the About box gets
-//                an "Update now" button that installs through the Tauri updater
-//                and relaunches.
+//   - "auto"     (macOS, the Windows NSIS per-user install): the update downloads
+//                through the Tauri updater first, then asks "Restart now?" so a
+//                user in the middle of something can choose Later. Nothing is
+//                installed until they say so.
 //   - "download" (the Windows per-machine MSI): the About box links to the
 //                releases page instead, so it never drops a second copy beside a
 //                managed install.
@@ -11,8 +12,8 @@
 //                mounted DMG): the updater cannot replace the bundle, so the UI
 //                asks the user to move Textmint to Applications and reopen it.
 // Either way, once a check finds a newer version a mint pill appears in the
-// status bar next to the version. Clicking it asks "Update and relaunch?" on the
-// auto channel, or opens the releases page on the download channel. See
+// status bar next to the version. Clicking it downloads the update on the auto
+// channel, or opens the releases page on the download channel. See
 // docs/plans/self-update.md.
 //
 // Everything degrades quietly: with no Tauri (a plain browser during dev) or an
@@ -28,11 +29,13 @@ const MOVE_TEXT = "Move Textmint to Applications in Finder, then reopen it to up
 let state = null;
 let checking = false;
 let channelKind = "download"; // safe default: never self-install unless told to
-// What the status-bar pill shows: "idle" (the offer), "confirm", "busy"
-// (download and install in progress), "failed", "copied", or "move".
+// What the status-bar pill shows: "idle" (the offer), "busy" (downloading or
+// installing), "ready" (downloaded, asking Restart now / Later), "later"
+// (downloaded, user deferred), "failed", "copied", or "move".
 let pill = "idle";
 let busyText = "";
-let installing = false;
+let busy = false;       // a download or install is running
+let downloaded = false; // the verified update is held in memory, ready to install
 
 const tauri = () => window.__TAURI__;
 
@@ -82,7 +85,9 @@ function hasUpdate() {
 }
 
 async function runCheck() {
-  if (checking || installing) return;
+  // A downloaded update lives on the current Update object; a fresh check would
+  // replace it and throw the download away.
+  if (checking || busy || downloaded) return;
   checking = true;
   renderAbout();
   state = await check();
@@ -101,12 +106,15 @@ function renderPill() {
 
   if (pill === "busy") {
     box.appendChild(document.createTextNode(busyText));
-  } else if (pill === "confirm") {
-    box.appendChild(document.createTextNode("Update and relaunch?"));
-    const yes = pillButton("Update", "", startAutoUpdate);
-    box.appendChild(yes);
-    box.appendChild(pillButton("Cancel", "", cancelConfirm, true));
-    yes.focus();
+  } else if (pill === "ready") {
+    // No focus() here: the download finishes on its own, often while the user
+    // is typing, and stealing focus would drop their keystrokes on a button.
+    box.appendChild(document.createTextNode("Update ready. Restart now?"));
+    box.appendChild(pillButton("Restart now", "Installs the update and relaunches Textmint.", installNow));
+    box.appendChild(pillButton("Later", "Keep working. Restart from here when you are ready.", deferInstall, true));
+  } else if (pill === "later") {
+    box.appendChild(pillButton("Restart to update",
+      "Installs the downloaded v" + state.version + " and relaunches Textmint.", installNow));
   } else if (pill === "failed") {
     box.appendChild(pillButton("Update failed: open download page",
       "Opens the releases page in your browser.", pillDownload));
@@ -120,7 +128,7 @@ function renderPill() {
       () => { pill = "move"; renderPill(); }));
   } else if (channelKind === "auto") {
     box.appendChild(pillButton("v" + state.version + " available",
-      "Update Textmint and relaunch. Asks first.", () => { pill = "confirm"; renderPill(); }));
+      "Downloads the update. Textmint asks before it restarts.", startDownload));
   } else {
     box.appendChild(pillButton("v" + state.version + " available",
       "This install updates from the download page. Opens it in your browser.", pillDownload));
@@ -137,12 +145,11 @@ function pillButton(label, tip, fn, quiet) {
   return b;
 }
 
-function cancelConfirm() {
-  if (pill !== "confirm") return;
-  pill = "idle";
+function deferInstall() {
+  if (pill !== "ready") return;
+  pill = "later";
   renderPill();
-  const b = document.querySelector("#update-pill button");
-  if (b) b.focus();
+  renderAbout();
 }
 
 async function pillDownload() {
@@ -172,8 +179,9 @@ function closeAbout() {
 function renderAbout() {
   const box = el("about-update");
   if (!box) return;
-  // Mid-install, setBusy owns this area; a repaint would offer "Update now" again.
-  if (installing) return;
+  // Mid-download or install, setBusy owns this area; a repaint would offer the
+  // button again.
+  if (busy) return;
   box.innerHTML = "";
 
   const t = tauri();
@@ -200,8 +208,11 @@ function renderAbout() {
 
   // An update is available.
   box.appendChild(line("Version " + state.version + " is available."));
-  if (channelKind === "auto") {
-    box.appendChild(actionButton("Update now", startAutoUpdate, true));
+  if (channelKind === "auto" && downloaded) {
+    box.appendChild(line("The update is downloaded and ready to install."));
+    box.appendChild(actionButton("Restart now", installNow, true));
+  } else if (channelKind === "auto") {
+    box.appendChild(actionButton("Download update", startDownload, true));
   } else if (channelKind === "move") {
     box.appendChild(line(MOVE_TEXT));
     box.appendChild(actionButton("Open download page", downloadAction));
@@ -276,15 +287,16 @@ function setBusy(text) {
   if (box) { box.innerHTML = ""; box.appendChild(line(text)); }
 }
 
-async function startAutoUpdate() {
-  if (!hasUpdate() || installing) return;
-  installing = true;
+// Step one: download and verify. Installs nothing, so it needs no confirmation.
+async function startDownload() {
+  if (!hasUpdate() || busy || downloaded) return;
+  busy = true;
   let total = 0;
   let got = 0;
   let shown = -1;
   try {
     setBusy("Downloading update...");
-    await state.downloadAndInstall((event) => {
+    await state.download((event) => {
       if (!event) return;
       if (event.event === "Started") {
         total = (event.data && event.data.contentLength) || 0;
@@ -293,28 +305,49 @@ async function startAutoUpdate() {
         // Step by 10% so the live region is not flooded with announcements.
         const pct = Math.min(100, Math.floor((got * 10) / total) * 10);
         if (pct !== shown) { shown = pct; setBusy("Downloading update " + pct + "%"); }
-      } else if (event.event === "Finished") {
-        setBusy("Installing. Textmint will relaunch.");
       }
     });
+    busy = false;
+    downloaded = true;
+    pill = "ready";
+    renderPill();
+    renderAbout();
+  } catch (e) {
+    fail("download", e);
+  }
+}
+
+// Step two, only on the user's say-so: install and relaunch. On Windows the
+// NSIS installer takes over and the app exits during install().
+async function installNow() {
+  if (!downloaded || busy) return;
+  busy = true;
+  try {
+    setBusy("Installing. Textmint will relaunch.");
+    await state.install();
     setBusy("Relaunching...");
     const t = tauri();
     if (t && t.process && t.process.relaunch) await t.process.relaunch();
   } catch (e) {
-    console.error("textmint: update install failed:", e);
-    installing = false;
-    pill = "failed";
-    renderPill();
-    const box = el("about-update");
-    if (box) {
-      box.innerHTML = "";
-      box.appendChild(line("Update failed. Try the download page instead."));
-      // The plugin rejects with a string or an Error; show it so a report has
-      // something to go on.
-      const why = e && e.message ? e.message : String(e || "");
-      if (why) box.appendChild(line("Reason: " + why));
-      box.appendChild(actionButton("Open download page", downloadAction));
-    }
+    fail("install", e);
+  }
+}
+
+function fail(step, e) {
+  console.error("textmint: update " + step + " failed:", e);
+  busy = false;
+  downloaded = false;
+  pill = "failed";
+  renderPill();
+  const box = el("about-update");
+  if (box) {
+    box.innerHTML = "";
+    box.appendChild(line("Update failed. Try the download page instead."));
+    // The plugin rejects with a string or an Error; show it so a report has
+    // something to go on.
+    const why = e && e.message ? e.message : String(e || "");
+    if (why) box.appendChild(line("Reason: " + why));
+    box.appendChild(actionButton("Open download page", downloadAction));
   }
 }
 
@@ -343,7 +376,7 @@ export function initUpdate() {
     if (e.key !== "Escape") return;
     const m = el("about-modal");
     if (m && !m.hidden) closeAbout();
-    else cancelConfirm();
+    else deferInstall();
   });
 
   // The footer ships with the version from index.html; the running app corrects it
