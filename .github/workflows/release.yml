@@ -19,9 +19,9 @@ jobs:
     if: github.repository == 'ckelsoe/textmint'
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
 
@@ -61,9 +61,9 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
 
@@ -76,7 +76,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -107,7 +107,24 @@ jobs:
         with:
           args: --target aarch64-apple-darwin
 
-      - uses: actions/upload-artifact@v4
+      # tauri build notarizes and staples the .app, then packs it into a DMG that
+      # it only signs, so the download itself fails `spctl -t open`. Submit the
+      # DMG as well and staple its ticket: Apple's recommendation for disk images,
+      # and it lets Gatekeeper check the download offline. Every command is
+      # checked, so a rejected submission fails the job rather than shipping.
+      - name: Notarize and staple the DMG
+        if: env.APPLE_API_KEY_PATH != ''
+        run: |
+          set -euo pipefail
+          DMG=$(ls src-tauri/target/aarch64-apple-darwin/release/bundle/dmg/*.dmg)
+          xcrun notarytool submit "$DMG" \
+            --key "$APPLE_API_KEY_PATH" --key-id "$APPLE_API_KEY" --issuer "$APPLE_API_ISSUER" \
+            --wait --timeout 30m
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+          spctl -a -vv -t open --context context:primary-signature "$DMG"
+
+      - uses: actions/upload-artifact@v6
         with:
           name: macos-aarch64
           # The DMG is the first-install download; the .app.tar.gz and its .sig
@@ -126,9 +143,9 @@ jobs:
     needs: verify
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version-file: .nvmrc
 
@@ -144,7 +161,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/cache@v4
+      - uses: actions/cache@v5
         with:
           path: |
             ~/.cargo/registry
@@ -215,7 +232,7 @@ jobs:
           npm run tauri -- signer sign --app-version "$version" "$exe"
           echo "re-signed $(basename "$exe").sig (v$version) over the Authenticode-signed installer"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: windows
           # The NSIS -setup.exe and its .sig feed the updater; the MSI ships for
@@ -240,9 +257,9 @@ jobs:
     # clear as it is seen more, so read the report, do not gate on it.
     if: github.repository == 'ckelsoe/textmint'
     continue-on-error: true
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # pinned on purpose; see docs/RELEASE.md
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           path: dist
 
@@ -307,9 +324,9 @@ jobs:
     name: draft release
     needs: [macos, windows]
     if: startsWith(github.ref, 'refs/tags/') && github.repository == 'ckelsoe/textmint'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # pinned on purpose; see docs/RELEASE.md
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           path: dist
 

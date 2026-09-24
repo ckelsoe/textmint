@@ -1,6 +1,6 @@
 [package]
 name = "textmint"
-version = "0.6.0"
+version = "0.6.1"
 description = "Textmint - clean & convert AI text, entirely on-device"
 authors = ["Charles Kelsoe"]
 edition = "2021"
@@ -37,8 +37,18 @@ tauri-plugin-updater = "2"
 # Opens external URLs in the default browser: the About box's repo and issue
 # links, and the MSI download page. Scoped to the repo in capabilities.
 tauri-plugin-opener = "2"
+# Dev-only MCP bridge, so an AI agent (Claude Code) can click, type, run JS in and
+# screenshot the running app. Optional and off by default: a release build and CI
+# never compile it. Turn it on for a dev session only, with
+#   npm run tauri dev -- --features mcp
+# See docs/AUTOMATION.md for what it exposes and why it is gated this hard.
+tauri-plugin-mcp-bridge = { version = "0.13", optional = true }
 ammonia = "4.2.0"
 htmd = "0.5.5"
 html5ever = "0.38"
 markup5ever_rcdom = "0.38"
+
+[features]
+# See tauri-plugin-mcp-bridge above. Registered only in a debug build as well.
+mcp = ["dep:tauri-plugin-mcp-bridge"]
 

@@ -114,6 +114,15 @@ if [ "$HAVE_NODE" = "1" ]; then
   done
 fi
 
+# The dev-only MCP bridge's permission lives in dev-capabilities/, granted at
+# runtime. Every build reads capabilities/, and a release build (which does not
+# compile the plugin) fails on a permission for a plugin it lacks.
+if grep -rqs "mcp-bridge" src-tauri/capabilities/; then
+  fail "mcp-bridge permission in src-tauri/capabilities/ (it belongs in dev-capabilities/)"
+else
+  pass "no dev-only permission in capabilities/"
+fi
+
 # 4. A version bump has to touch all four places, and all four carry the full
 #    version: the footer span reads v0.2.0 against 0.2.0 in the other three.
 if [ "$HAVE_NODE" = "1" ] && [ -f package.json ] && [ -f src-tauri/tauri.conf.json ] \
@@ -133,6 +142,18 @@ if [ "$HAVE_NODE" = "1" ] && [ -f package.json ] && [ -f src-tauri/tauri.conf.js
     fail "version mismatch"
     printf '        package.json=%s tauri.conf.json=%s Cargo.toml=%s footer=v%s (expected v%s)\n' \
       "$V_PKG" "$V_TAURI" "$V_CARGO" "$V_FOOT" "$V_PKG"
+  fi
+fi
+
+# npm does not rewrite package-lock.json's own version on a hand bump, so it sat
+# at 0.2.0 through 0.6.0 unnoticed. It follows package.json.
+if [ "$HAVE_NODE" = "1" ] && [ -f package-lock.json ] && [ -f package.json ]; then
+  V_LOCK=$(read_json_field package-lock.json version)
+  V_LOCK_ROOT=$(node -p 'require("./package-lock.json").packages[""].version' 2>/dev/null)
+  if [ "$V_LOCK" = "$(read_json_field package.json version)" ] && [ "$V_LOCK_ROOT" = "$V_LOCK" ]; then
+    pass "package-lock.json version matches ($V_LOCK)"
+  else
+    fail "package-lock.json version is $V_LOCK; run: npm install --package-lock-only"
   fi
 fi
 
@@ -203,11 +224,21 @@ else
   # toolchain bump that adds a lint can turn this red on unchanged code.
   if ! cargo clippy --version >/dev/null 2>&1; then
     fail "clippy not installed (rustup component add clippy)"
-  elif CLIPPY_ERR=$(cd src-tauri && cargo clippy --all-targets --quiet -- -D warnings 2>&1); then
-    pass "cargo clippy"
   else
-    fail "cargo clippy"
-    printf '%s\n' "$CLIPPY_ERR" | sed 's/^/        /'
+    if CLIPPY_ERR=$(cd src-tauri && cargo clippy --all-targets --quiet -- -D warnings 2>&1); then
+      pass "cargo clippy"
+    else
+      fail "cargo clippy"
+      printf '%s\n' "$CLIPPY_ERR" | sed 's/^/        /'
+    fi
+    # The dev-only MCP bridge sits behind the `mcp` feature, which no default
+    # build turns on, so without this its wiring in lib.rs could rot unnoticed.
+    if MCP_ERR=$(cd src-tauri && cargo clippy --all-targets --features mcp --quiet -- -D warnings 2>&1); then
+      pass "cargo clippy --features mcp"
+    else
+      fail "cargo clippy --features mcp"
+      printf '%s\n' "$MCP_ERR" | sed 's/^/        /'
+    fi
   fi
 fi
 

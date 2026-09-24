@@ -69,6 +69,32 @@ pub fn run() {
         update::update_channel
     ]);
 
+    // Dev-only MCP bridge for AI-driven UI testing: the `mcp` feature (off by
+    // default, so release builds never compile it) and a debug build, both.
+    // Bound to 127.0.0.1, not the plugin's default of every interface, since it
+    // has no authentication. See docs/AUTOMATION.md.
+    //
+    // Its permission is granted at runtime from a capability file outside
+    // capabilities/ (which every build reads). The grant runs in a small plugin
+    // of its own rather than Builder::setup, which holds a single hook that a
+    // later setup() would silently replace, or be replaced by.
+    #[cfg(all(debug_assertions, feature = "mcp"))]
+    let builder = builder
+        .plugin(
+            tauri_plugin_mcp_bridge::Builder::new()
+                .bind_address("127.0.0.1")
+                .build(),
+        )
+        .plugin(
+            tauri::plugin::Builder::<tauri::Wry>::new("textmint-mcp-acl")
+                .setup(|app, _api| {
+                    use tauri::Manager;
+                    app.add_capability(include_str!("../dev-capabilities/mcp.json"))?;
+                    Ok(())
+                })
+                .build(),
+        );
+
     builder
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

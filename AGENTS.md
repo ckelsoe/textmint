@@ -76,7 +76,8 @@ with no DOM access; `src/main.js` is UI wiring. macOS aarch64 is the only target
   never teach an individual pass to skip tables.
 - A new plugin or command needs a matching entry in `src-tauri/capabilities/default.json`. Without
   it the app builds fine and then fails at runtime with a permission error.
-- A version bump touches four files: `package.json`, `src-tauri/Cargo.toml`,
+- A version bump touches four files, plus `package-lock.json`'s own version (check.sh checks
+  it too): `package.json`, `src-tauri/Cargo.toml`,
   `src-tauri/tauri.conf.json`, and the `.footer-version` span in `src/index.html`, which carries
   the full version (`v0.2.0`). The running app overwrites the span from Tauri at startup.
 

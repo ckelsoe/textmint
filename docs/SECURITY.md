@@ -25,6 +25,12 @@ CSP (`img-src 'self' data:`, `font-src 'self' data:`) stops the Preview fetching
 remote images or fonts, so viewing a paste sends nothing; Copy HTML keeps those references for
 the document they are pasted into.
 
+Development builds can include an MCP bridge for AI-driven UI testing
+(`tauri-plugin-mcp-bridge`). It is an optional Cargo feature that release builds never
+compile, is registered only in debug builds, and is bound to `127.0.0.1`. It has no
+authentication, so a local page could reach it during such a session. See
+`docs/AUTOMATION.md`.
+
 The About box also has links to the GitHub repo and the new-issue page. Clicking one launches
 the default browser at that page through the opener plugin, which is scoped in
 `capabilities/default.json` to those repo URLs alone. That is a user-initiated browser launch,
