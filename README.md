@@ -16,7 +16,11 @@ not a few hundred.
 - **Strip AI noise** — removes `Thought for Xs` lines, nested-output markers, tool-call
   bullets, and `(ctrl+o to expand)` artifacts.
 - **Strip Unicode junk** — emojis, zero-width characters, variation selectors, bidi marks,
-  control characters, math and non-ASCII currency symbols.
+  control characters, terminal colour codes, math and non-ASCII currency symbols. Unusual spaces
+  become plain spaces; joiners that spell Persian or Hindi words stay.
+- **Emoji to text** — instead of deleting emoji, convert the meaningful ones through an editable
+  map: `- ✅ Tests pass` becomes the task item `- [x] Tests pass`, `⚠️` becomes `Warning:`, `➡️`
+  becomes `->`. Settings > Emoji > To text, or `--emoji text` on the CLI.
 - **Reflow & tidy** — join soft-wrapped paragraph lines, normalize bullets, collapse blank
   lines, strip leading indentation, hard-wrap at a chosen width.
 - **Three outputs, three copy buttons** — **Copy text** (plain, markdown removed), **Copy

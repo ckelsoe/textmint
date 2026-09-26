@@ -5,6 +5,7 @@ import { clean, cleanToMarkdown, looksLikeHtml, prefersPlainPaste } from "./pipe
 import { initBridge } from "./bridge.js";
 import { initUpdate } from "./update.js";
 import { initDrawer } from "./drawer.js";
+import { initEmojiMap, currentEmojiMap } from "./emoji-map.js";
 import {
   CHECK_IDS, SETTING_IDS, MD_PRESETS, HTML_OPTION_IDS, renderFlavorFor, knownPrefs,
 } from "./controls.js";
@@ -55,8 +56,13 @@ import {
 
   // Settings for the Rust HTML cleaner and the HTML-to-markdown converter. Key
   // names match the serde structs in src-tauri/src/html.rs.
+  // The emoji map when Settings > Emoji is To text, else null (remove
+  // every emoji). The pipeline and the Rust HTML cleaner both take this.
+  function emojiMap() {
+    return val("opt-emoji") === "text" ? currentEmojiMap() : null;
+  }
   function htmlOpts() {
-    const o = { stripUnicode: opt("opt-strip-unicode") };
+    const o = { stripUnicode: opt("opt-strip-unicode"), emojiMap: emojiMap() };
     Object.keys(HTML_OPTION_IDS).forEach((id) => { o[HTML_OPTION_IDS[id]] = val(id); });
     return o;
   }
@@ -129,6 +135,7 @@ import {
     return {
       stripNoise:    opt("opt-strip-noise"),
       stripUnicode:  opt("opt-strip-unicode"),
+      emojiMap:      emojiMap(),
       stripMarkdown: true, // the Text output is plain text by definition
       bullets:       opt("opt-bullets"),
       joinLines:     opt("opt-join-lines"),
@@ -411,6 +418,7 @@ import {
   // --- Init -----------------------------------------------------------------
   loadPrefs();
   drawer = initDrawer({ activeView, onChange: onSettingChange });
+  initEmojiMap({ onChange: render });
   try { applyTheme(localStorage.getItem("textmint-theme") === "light"); } catch (e) {}
   try { showView(localStorage.getItem(TAB_KEY) || "text"); } catch (e) { showView("text"); }
 

@@ -365,6 +365,45 @@ fn strip_unicode_matches_the_js_pass() {
 }
 
 #[test]
+fn map_emoji_matches_the_js_pass() {
+    // test/fixtures/emoji-parity.json: DEFAULT_EMOJI_MAP from src/pipeline.js
+    // and a custom map, each with inputs and the output the JS pass produces.
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("../../../test/fixtures/emoji-parity.json")).unwrap();
+    for set in [&fixture, &fixture["custom"]] {
+        let map: Vec<EmojiRow> = serde_json::from_value(set["map"].clone()).unwrap();
+        for case in set["cases"].as_array().unwrap() {
+            let input = case["input"].as_str().unwrap();
+            let expected = case["expected"].as_str().unwrap();
+            assert_eq!(
+                strip_unicode_with(input, Some(&map)),
+                expected,
+                "input: {input:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn clean_html_converts_emoji_when_given_a_map() {
+    let opts: HtmlOptions = serde_json::from_str(
+        r#"{"stripUnicode": true, "emojiMap": [{"symbols": "\u2705", "start": "[x]", "inline": "(yes)"}]}"#,
+    )
+    .unwrap();
+    let out = clean_html(
+        "<ul><li>\u{2705} Done</li></ul><p>All good \u{2705} \u{1F680}</p>",
+        &opts,
+    );
+    assert!(out.contains("<li>[x] Done</li>"), "{out}");
+    assert!(
+        out.contains("All good (yes)</p>") || out.contains("All good (yes) </p>"),
+        "{out}"
+    );
+    let removed = clean_with("<p>All good \u{2705}</p>", |o| o.strip_unicode = true);
+    assert!(removed.contains("All good</p>"), "{removed}");
+}
+
+#[test]
 fn defaults_match_the_frontend() {
     // HTML_DEFAULTS in src/controls.js is what the app's controls start at and
     // what the CLI sends; serde fills anything a caller leaves out from

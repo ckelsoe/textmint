@@ -474,10 +474,249 @@ test("link restyle leaves inline code alone", () => {
 });
 
 test("join lines leaves quote lines, and so callouts, intact", () => {
-  const q = "> Note: first line here?\n> second line.";
+  const q = "> Note: the first line of this quoted passage runs long enough\n> that it wrapped onto a second line.";
   assert.equal(P.cleanToMarkdown(q, MD_BASE), q);
   // The text path strips the quote marker first, so it joins clean prose.
-  assert.equal(P.clean(q, { joinLines: true, stripMarkdown: true }), "Note: first line here? second line.");
+  assert.equal(P.clean(q, { joinLines: true, stripMarkdown: true }),
+    "Note: the first line of this quoted passage runs long enough that it wrapped onto a second line.");
   const callout = "> [!question] Why?\n> Because.";
   assert.equal(P.cleanToMarkdown(callout, MD_BASE), callout);
+});
+
+// --- Protection, 2026-09-26 -------------------------------------------------
+
+test("tilde fences are protected like backtick fences", () => {
+  const fence = "~~~\n  def f():\n      return 1\n~~~";
+  assert.ok(P.clean("Intro.\n\n" + fence, ALL_ON).includes(fence));
+});
+
+test("a fence closes only on the same character, at least as long", () => {
+  const input = "````md\n```js\nx *y* z\n```\n````\n\nAfter *em*.";
+  const out = P.clean(input, ALL_ON);
+  assert.ok(out.includes("```js\nx *y* z\n```"), out);
+  assert.ok(out.endsWith("After em."), out);
+});
+
+test("```inline``` on one line is not a fence that swallows the rest", () => {
+  const out = P.clean("Use ```x``` here.\n\n**bold** after", ALL_ON);
+  assert.ok(out.includes("bold after"), out);
+});
+
+test("a shell transcript keeps its > lines and indentation", () => {
+  const input = "$ npm test\n> textmint@0.6.1 test\n> node --test\n  ok 1 - passes";
+  assert.equal(P.clean(input, ALL_ON), input);
+});
+
+test("a Python traceback is kept whole, <module> included", () => {
+  const tb = "Traceback (most recent call last):\n  File \"a.py\", line 3, in <module>\n    main()\nValueError: bad";
+  assert.equal(P.clean("It failed:\n\n" + tb, ALL_ON), "It failed:\n\n" + tb);
+});
+
+test("an email address before a percent sign is not a prompt", () => {
+  const code = P.scanProtected(["mail@shop.example 20 % off your next", "order, no code needed."]);
+  assert.deepEqual(code, []);
+});
+
+test("strip indent removes the paste's shared margin from code, not its nesting", () => {
+  const out = P.clean("  def f():\n      return 1", { stripIndent: true });
+  assert.equal(out, "def f():\n    return 1");
+});
+
+test("clean keeps the first line's indentation when nothing strips it", () => {
+  assert.equal(P.clean("\n\n    x = 1\n    y = 2\n\n", {}), "    x = 1\n    y = 2");
+});
+
+test("four-backtick fences restyle to four tildes", () => {
+  const out = P.cleanToMarkdown("````\ncode\n````", { mdFence: "tilde" });
+  assert.equal(out, "~~~~\ncode\n~~~~");
+});
+
+test("code holding ``` is fenced with a longer fence for the renderer", () => {
+  const out = P.cleanToMarkdown("const s = \"```\";\nfoo();", {});
+  assert.ok(out.startsWith("````\n") && out.endsWith("\n````"), out);
+});
+
+test("stripMarkdown keeps arithmetic asterisks", () => {
+  assert.equal(P.stripMarkdown("a = b * c\nd = e * f"), "a = b * c\nd = e * f");
+  assert.equal(P.stripMarkdown("2*3*4 and 5 * 6"), "2*3*4 and 5 * 6");
+  assert.equal(P.stripMarkdown("**bold** and *em* and ***both***"), "bold and em and both");
+});
+
+test("stripMarkdown emphasis does not reach across paragraphs", () => {
+  assert.equal(P.stripMarkdown("a *b\n\nc* d"), "a *b\n\nc* d");
+  assert.equal(P.stripMarkdown("*wrapped\nemphasis*"), "wrapped\nemphasis");
+});
+
+test("stripMarkdown strips HTML tags but not generics or placeholders", () => {
+  assert.equal(P.stripMarkdown("Promise<void> in <module>, Vec<String>"),
+               "Promise<void> in <module>, Vec<String>");
+  assert.equal(P.stripMarkdown("<b>bold</b> and <span class=\"x\">y</span><br/>"), "bold and y");
+  assert.equal(P.stripMarkdown("see <https://example.com>"), "see https://example.com");
+});
+
+test("stripMarkdown leaves inline code contents alone", () => {
+  assert.equal(P.stripMarkdown("call `f(**kwargs)` or `a_b_c` or `\\d+\\.`"),
+               "call f(**kwargs) or a_b_c or \\d+\\.");
+  assert.equal(P.stripMarkdown("``code with ` tick``"), "code with ` tick");
+});
+
+test("stripMarkdown unescapes markdown escapes", () => {
+  assert.equal(P.stripMarkdown("5 \\* 3 and \\_not em\\_ and \\# no heading"),
+               "5 * 3 and _not em_ and # no heading");
+});
+
+test("stripMarkdown strike needs flanking tildes", () => {
+  assert.equal(P.stripMarkdown("~~gone~~ but ~~~ and a ~~ b ~~ c stay"),
+               "gone but ~~~ and a ~~ b ~~ c stay");
+});
+
+test("stripUnicode removes whole terminal escapes, not just the ESC", () => {
+  assert.equal(P.stripUnicode("a\u001b[31mred\u001b[0m b"), "ared b");
+  assert.equal(P.stripUnicode("x\u001b]8;;http://a\u001b\\link\u001b]8;;\u001b\\ y"), "xlink y");
+});
+
+test("an unterminated OSC stops at the end of its line", () => {
+  assert.equal(P.stripUnicode("done\u001b]0;title\nnext line"), "done\nnext line");
+});
+
+test("stripUnicode keeps joiners that spell words, drops the rest", () => {
+  const persian = "\u0645\u06cc\u200c\u062e\u0648\u0627\u0647\u0645";
+  assert.equal(P.stripUnicode(persian), persian);
+  assert.equal(P.stripUnicode("hel\u200dlo wor\u200cld \u200d"), "hello world ");
+});
+
+test("stripUnicode turns unusual spaces into spaces", () => {
+  assert.equal(P.stripUnicode("a\u00a0b\u202fc\u2009d\u3000e"), "a b c d e");
+});
+
+// --- Reflow, 2026-09-26 -----------------------------------------------------
+
+const J = (t) => P.joinWrappedLines(t);
+
+test("join lines reflows text wrapped narrower than 50 columns", () => {
+  const narrow = "The cleanup engine reads the copied\ntext and decides, block by block,\nwhich parts are safe to tidy and which\nmust be left exactly as they were.";
+  assert.equal(J(narrow), narrow.replace(/\n/g, " "));
+});
+
+test("join lines keeps a break the next word would have fit before", () => {
+  const pairs = "Fixed the importer crash when the manifest is empty and the\nqueue is already drained.\nAdded a revert hotkey that restores the original clipboard\ncontents after a clean.";
+  assert.equal(J(pairs), "Fixed the importer crash when the manifest is empty and the queue is already drained.\nAdded a revert hotkey that restores the original clipboard contents after a clean.");
+});
+
+test("join lines keeps a colon lead-in, a heading and a setext underline", () => {
+  assert.equal(J("Run this before the first start of the watcher:\nnpm install and then npm start"),
+               "Run this before the first start of the watcher:\nnpm install and then npm start");
+  assert.equal(J("# A heading line\nfollowed by body text"), "# A heading line\nfollowed by body text");
+  assert.equal(J("Title\n====="), "Title\n=====");
+});
+
+test("join lines joins a wrapped list item, continuation lines included", () => {
+  const item = "- [x] The first check passed on the second try after the cache was cleared\n      and the build server restarted with a clean state directory in place.\n      (verified on staging.)\n- [x] Next";
+  assert.equal(J(item), "- [x] The first check passed on the second try after the cache was cleared and the build server restarted with a clean state directory in place. (verified on staging.)\n- [x] Next");
+});
+
+test("join lines runs an open bracket on to the next line", () => {
+  assert.equal(J("keep the value in (or near the\nTerraform module that consumes it)."),
+               "keep the value in (or near the Terraform module that consumes it).");
+});
+
+test("join lines does not join a list of short commands or names", () => {
+  const list = "alpha\nbravo\ncharlie delta\necho";
+  assert.equal(J(list), list);
+});
+
+test("wrap keeps a bullet with its first word, however long", () => {
+  const out = P.wrapText("- https://example.com/docs/guides/clipboard-integration which explains", 40);
+  assert.ok(out.startsWith("- https://example.com/"), out);
+  assert.ok(!out.split("\n").some((l) => l.trim() === "-"), out);
+});
+
+test("wrap does not hang lines under a bullet when strip indent is on", () => {
+  const out = P.clean("- one two three four five six seven eight nine ten", { wrap: true, wrapWidth: 20, stripIndent: true });
+  assert.ok(out.split("\n").slice(1).every((l) => !/^\s/.test(l)), out);
+});
+
+test("strip unicode takes a symbol's space with it, but never glues words", () => {
+  assert.equal(P.stripUnicode("\u2705 Done, x \u2264 y, costs \u20AC5, done \uD83D\uDE80."), "Done, x y, costs 5, done.");
+});
+
+test("shell command runs are protected; English that starts like one is not", () => {
+  assert.equal(P.scanProtected(["git checkout main", "npm ci", "npm test"])[0].kind, "code");
+  assert.deepEqual(P.scanProtected(["find the file you need and", "make sure it opens cleanly"]), []);
+});
+
+test("stripAiNoise removes terminal escapes on its own", () => {
+  assert.equal(P.stripAiNoise("\u001b[32mok\u001b[0m 1 - passes"), "ok 1 - passes");
+});
+
+test("escapes and invisibles are removed inside protected blocks too", () => {
+  const input = "$ npm test\n\u001b[32mok\u001b[0m 1\n\n```\nlet a\u200B = 1; // \u202Eevil\n```";
+  const out = P.clean(input, { stripUnicode: true });
+  assert.equal(out, "$ npm test\nok 1\n\n```\nlet a = 1; // evil\n```");
+  assert.ok(P.cleanToMarkdown(input, { stripNoise: true }).includes("ok 1"));
+  assert.ok(P.clean("```\n\u{1F680} x\n```", { stripUnicode: true }).includes("\u{1F680}"), "emoji in code stays");
+});
+
+test("a long paragraph and a large paste clean in linear time", () => {
+  // Each input here once took 25 s or more (quadratic backtracking or
+  // rescanning); linear, each takes well under half a second. The 5 s bound
+  // leaves room for a loaded CI runner running the other test files in
+  // parallel, and still fails loudly on a return to quadratic.
+  const LIMIT = 5000;
+  const all = { ...ALL_ON, wrap: true, wrapWidth: 80 };
+  const timed = (label, fn) => {
+    const t = Date.now();
+    fn();
+    const ms = Date.now() - t;
+    assert.ok(ms < LIMIT, label + " took " + ms + " ms");
+  };
+  // Join lines once rescanned the paragraph for every line it added.
+  const para = Array.from({ length: 20000 }, (_, i) => "word " + i + " continues (the wrapped paragraph here and").join("\n");
+  timed("long paragraph", () => { P.clean(para, all); P.cleanToMarkdown(para, all); });
+  timed("large code block", () => P.clean(Array.from({ length: 20000 }, (_, i) => "  const x" + i + " = f(" + i + ");").join("\n"), all));
+  // Unclosed markers and bracket-heavy lines once made the emphasis, strike
+  // and code-line regexes backtrack.
+  for (const bad of ["*a b ".repeat(80000), "~~a b ".repeat(100000), "_a b ".repeat(80000),
+                     "(a ".repeat(120000), Array.from({ length: 30000 }, () => "*a b c").join("\n")]) {
+    timed(JSON.stringify(bad.slice(0, 12)), () => { P.clean(bad, all); P.cleanToMarkdown(bad, all); });
+  }
+  // The emoji scanner once re-read the output line on every symbol.
+  const emo = { ...all, emojiMap: P.DEFAULT_EMOJI_MAP };
+  for (const bad of ["ok \u2705 ".repeat(100000), Array.from({ length: 150000 }, () => "- \u2705 done \u274C").join("\n")]) {
+    timed("emoji input", () => P.clean(bad, emo));
+  }
+});
+
+// --- Emoji to text, 2026-09-26 ------------------------------------------------
+
+test("mapEmoji matches the Rust twin on the parity fixture", async () => {
+  // src-tauri/src/html/tests.rs asserts the same cases against map_emoji.
+  const { readFileSync } = await import("node:fs");
+  const f = JSON.parse(readFileSync(new URL("./fixtures/emoji-parity.json", import.meta.url), "utf8"));
+  assert.deepEqual(f.map, P.DEFAULT_EMOJI_MAP, "fixture map drifted from DEFAULT_EMOJI_MAP; regenerate it");
+  for (const set of [f, f.custom]) {
+    for (const c of set.cases) assert.equal(P.stripUnicode(c.input, set.map), c.expected, JSON.stringify(c.input));
+  }
+});
+
+test("convert mode turns checklists into task lists and spaces replacements", () => {
+  const map = P.DEFAULT_EMOJI_MAP;
+  assert.equal(P.stripUnicode("- \u2705 Done\n- \u274C Todo", map), "- [x] Done\n- [ ] Todo");
+  assert.equal(P.stripUnicode("done\u2705.", map), "done (yes).");
+  assert.equal(P.stripUnicode("\uD83D\uDE80 Launch", map), "Launch", "unmapped emoji are removed");
+});
+
+test("remove mode is unchanged when no map is given", () => {
+  assert.equal(P.stripUnicode("\u2705 Done \u2192 next"), "Done \u2192 next");
+});
+
+test("a malformed map is ignored, not thrown on", () => {
+  assert.equal(P.mapEmoji("\u2705 x", [null, 5, { symbols: 7 }, { start: "[x]" }]), "\u2705 x");
+  assert.equal(P.mapEmoji("\u2705 x", "not a list"), "\u2705 x");
+});
+
+test("convert mode reaches both outputs and the markdown renders a task list", () => {
+  const o = { stripUnicode: true, emojiMap: P.DEFAULT_EMOJI_MAP };
+  assert.equal(P.clean("\u2705 Tests pass", o), "[x] Tests pass");
+  assert.equal(P.cleanToMarkdown("- \u2705 Tests pass", o), "- [x] Tests pass");
 });

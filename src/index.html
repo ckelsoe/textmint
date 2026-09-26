@@ -77,11 +77,21 @@
             <input type="checkbox" id="opt-strip-noise" checked />
             <label for="opt-strip-noise">Strip AI noise</label>
           </div>
-          <div data-setting="opt-strip-unicode" class="control-group" data-tip="Removes emojis, zero-width characters, variation selectors, text direction marks, control characters, math symbols, and non-ASCII currency symbols.">
+          <div data-setting="opt-strip-unicode" class="control-group" data-tip="Removes emojis (or converts them to text, see Emoji), zero-width characters, variation selectors, text direction marks, terminal colour codes, control characters, math symbols, and non-ASCII currency symbols.">
             <input type="checkbox" id="opt-strip-unicode" checked />
             <label for="opt-strip-unicode">Strip Unicode junk</label>
           </div>
-          <div data-setting="opt-join-lines" class="control-group" data-tip="Joins soft-wrapped lines within a paragraph back into one flowing line. Short lines without terminal punctuation (headers, titles) are left alone.">
+          <div data-setting="opt-emoji" class="setting-row" data-tip="With Strip Unicode junk on. Remove deletes every emoji. To text first replaces the ones in your emoji map with text, such as [x] for a check mark or -> for an arrow, then removes the rest.">
+            <label for="opt-emoji">Emoji</label>
+            <span class="emoji-control">
+              <select id="opt-emoji">
+                <option value="remove" selected>Remove</option>
+                <option value="text">To text</option>
+              </select>
+              <button type="button" id="btn-emoji-map" class="link-btn" data-tip="Choose which emoji become which text.">Edit map</button>
+            </span>
+          </div>
+          <div data-setting="opt-join-lines" class="control-group" data-tip="Joins soft-wrapped lines back into the paragraph or list item they came from. A break the next word would have fit before, a line ending in a colon, a heading, and code are left alone.">
             <input type="checkbox" id="opt-join-lines" checked />
             <label for="opt-join-lines">Join paragraph lines</label>
           </div>
@@ -261,12 +271,29 @@
       <span id="stat-in">In: 0 chars</span>
       <span id="stat-out">Out: 0 chars</span>
       <span id="stat-lines">0 lines</span>
-      <span class="footer-credit">Created by Charles Kelsoe &nbsp;<button type="button" id="btn-about" data-tip="About Textmint, and check for updates." class="footer-version">v0.6.1</button></span>
+      <span class="footer-credit">Created by Charles Kelsoe &nbsp;<button type="button" id="btn-about" data-tip="About Textmint, and check for updates." class="footer-version">v0.7.0</button></span>
       <span id="update-pill" class="update-pill" role="status" aria-live="polite" hidden></span>
       <span class="footer-shortcuts">Cmd+Shift+C text &nbsp; Cmd+Shift+M markdown &nbsp; Cmd+Shift+H HTML</span>
     </div>
 
 
+    <div id="emoji-modal" class="modal" hidden>
+      <div class="modal-overlay" data-close="1"></div>
+      <div class="modal-card emoji-card" role="dialog" aria-modal="true" aria-labelledby="emoji-title">
+        <button type="button" id="emoji-close" class="modal-close" aria-label="Close" data-close="1">&#215;</button>
+        <h2 id="emoji-title">Emoji map</h2>
+        <p class="about-tag">Used when Emoji is set to To text. List one or more symbols per row, separated by spaces. Line start is used at the start of a line or list item, so a check mark there can become a task list box. Mid-line is used anywhere else; leave it empty to remove the symbol there. Emoji not in the map are removed.</p>
+        <div class="emoji-grid emoji-head" aria-hidden="true">
+          <span>Symbols</span><span>Line start</span><span>Mid-line</span><span></span>
+        </div>
+        <div id="emoji-rows" class="emoji-rows"></div>
+        <div class="emoji-actions">
+          <button type="button" id="emoji-add" class="about-btn">Add row</button>
+          <button type="button" id="emoji-reset" class="link-btn" data-tip="Replace your map with the built-in one.">Reset to defaults</button>
+          <button type="button" id="emoji-done" class="about-btn primary" data-close="1">Done</button>
+        </div>
+      </div>
+    </div>
     <div id="about-modal" class="modal" hidden>
       <div class="modal-overlay" data-close="1"></div>
       <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="about-title">

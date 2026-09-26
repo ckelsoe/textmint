@@ -101,6 +101,20 @@ pub struct HtmlOptions {
     pub tidy: bool,
     /// Run the Unicode junk pass over text nodes.
     pub strip_unicode: bool,
+    /// With strip_unicode: None removes every emoji, Some converts the mapped
+    /// ones to text first (Settings > Emoji > To text).
+    pub emoji_map: Option<Vec<EmojiRow>>,
+}
+
+/// One row of the emoji map: space-separated symbols, the text used at the
+/// start of a line or list item, and the text used mid-line. The same shape as
+/// DEFAULT_EMOJI_MAP in src/pipeline.js, which the frontend sends.
+#[derive(Deserialize, Clone, Debug, PartialEq, Default)]
+#[serde(default, deny_unknown_fields)]
+pub struct EmojiRow {
+    pub symbols: String,
+    pub start: String,
+    pub inline: String,
 }
 
 impl Default for HtmlOptions {
@@ -115,6 +129,7 @@ impl Default for HtmlOptions {
             strip_tracking: true,
             tidy: true,
             strip_unicode: false,
+            emoji_map: None,
         }
     }
 }
@@ -706,7 +721,7 @@ impl Tidy<'_> {
                 t = collapse_nbsp(&t);
             }
             if self.o.strip_unicode {
-                t = strip_unicode(&t);
+                t = strip_unicode_with(&t, self.o.emoji_map.as_deref());
             }
             *contents.borrow_mut() = t.into();
             return vec![node];
@@ -1266,12 +1281,66 @@ fn strip_tracking(href: &str) -> String {
 /// unicode-parity.json holds boundary characters (check marks, arrows, flags,
 /// skin tones) and both test suites assert the same output from it.
 pub fn strip_unicode(text: &str) -> String {
+    strip_unicode_with(text, None)
+}
+
+/// strip_unicode with an emoji map: mapped symbols become text before the rest
+/// are removed. See map_emoji.
+pub fn strip_unicode_with(text: &str, emoji_map: Option<&[EmojiRow]>) -> String {
     static PICTO: OnceLock<fancy_regex::Regex> = OnceLock::new();
-    let kept: String = text
-        .chars()
+    static ANSI: OnceLock<fancy_regex::Regex> = OnceLock::new();
+    static LETTER: OnceLock<fancy_regex::Regex> = OnceLock::new();
+    // Terminal escapes, the same pattern as ANSI in src/pipeline.js.
+    let ansi = ANSI.get_or_init(|| {
+        fancy_regex::Regex::new(concat!(
+            "\u{1B}(?:",
+            r"\[[0-9;?]*[ -/]*[@-~]",
+            "|\\][0-9;][^\u{07}\u{1B}\r\n]*(?:\u{07}|\u{1B}\\\\)?",
+            "|\\][^\u{07}\u{1B}\r\n]*(?:\u{07}|\u{1B}\\\\)",
+            "|[ -/]*[0-~]",
+            "|)|\u{9B}[0-9;?]*[ -/]*[@-~]"
+        ))
+        .expect("valid escape regex")
+    });
+    let text = ansi.replace_all(text, "");
+    let letter = LETTER
+        .get_or_init(|| fancy_regex::Regex::new(r"^[\p{L}\p{M}]$").expect("valid letter regex"));
+    let is_letter = |c: Option<char>| {
+        c.is_some_and(|c| letter.is_match(c.encode_utf8(&mut [0; 4])).unwrap_or(false))
+    };
+    let chars: Vec<char> = text.chars().collect();
+    let kept: String = chars
+        .iter()
+        .enumerate()
+        .filter_map(|(i, &c)| {
+            let u = c as u32;
+            // ZWNJ and ZWJ stay between two letters of a script that is not
+            // Latin, where they spell words (Persian, Hindi); elsewhere they go.
+            if matches!(u, 0x200C | 0x200D) {
+                let prev = i.checked_sub(1).map(|p| chars[p]);
+                let next = chars.get(i + 1).copied();
+                let keep = is_letter(prev)
+                    && is_letter(next)
+                    && !prev.is_some_and(is_latin)
+                    && !next.is_some_and(is_latin);
+                return keep.then_some(c);
+            }
+            // Unusual spaces read as a space, line and paragraph separators
+            // as a line break.
+            if matches!(
+                u,
+                0xA0 | 0x1680 | 0x2000..=0x200A | 0x202F | 0x205F | 0x3000
+            ) {
+                return Some(' ');
+            }
+            if matches!(u, 0x2028 | 0x2029) {
+                return Some('\n');
+            }
+            Some(c)
+        })
         .filter(|&c| {
             let u = c as u32;
-            !(matches!(u, 0xAD | 0x200B..=0x200F | 0xFEFF)
+            !(matches!(u, 0xAD | 0x200B | 0x200E | 0x200F | 0xFEFF)
                 || (0xFE00..=0xFE0F).contains(&u)
                 || (0xE0100..=0xE01EF).contains(&u)
                 || (0x202A..=0x202E).contains(&u)
@@ -1280,20 +1349,160 @@ pub fn strip_unicode(text: &str) -> String {
                 || (0x7F..=0x9F).contains(&u))
         })
         .collect();
-    let picto = PICTO.get_or_init(|| {
-        fancy_regex::Regex::new(r"\p{Extended_Pictographic}").expect("valid property regex")
+    let kept = match emoji_map {
+        Some(map) => map_emoji(&kept, map),
+        None => kept,
+    };
+    // Emoji, skin tones, math and currency symbols, taking one adjacent space
+    // along unless a word would then touch: SYMBOL_RUN in src/pipeline.js.
+    let symbols = PICTO.get_or_init(|| {
+        fancy_regex::Regex::new(concat!(
+            r"([ \t]?)((?:\p{Extended_Pictographic}|[\x{1F3FB}-\x{1F3FF}",
+            r"\x{2200}-\x{22FF}\x{2A00}-\x{2AFF}\x{20A0}-\x{20CF}\x{A2}\x{A3}\x{A5}])+)([ \t]?)"
+        ))
+        .expect("valid symbol regex")
     });
-    let no_picto = picto.replace_all(&kept, "");
-    no_picto
-        .chars()
-        .filter(|&c| {
-            let u = c as u32;
-            !((0x2200..=0x22FF).contains(&u)
-                || (0x2A00..=0x2AFF).contains(&u)
-                || (0x20A0..=0x20CF).contains(&u)
-                || matches!(u, 0xA2 | 0xA3 | 0xA5))
-        })
-        .collect()
+    let is_word = |c: Option<char>| c.is_some_and(char::is_alphanumeric);
+    let mut out = String::with_capacity(kept.len());
+    let mut last = 0;
+    for caps in symbols.captures_iter(&kept).flatten() {
+        let m = caps.get(0).expect("whole match");
+        let before = !caps.get(1).map_or("", |g| g.as_str()).is_empty();
+        let after = !caps.get(3).map_or("", |g| g.as_str()).is_empty();
+        let prev = kept[..m.start()].chars().next_back();
+        let next = kept[m.end()..].chars().next();
+        out.push_str(&kept[last..m.start()]);
+        if (before && after) || (before && is_word(next)) || (after && is_word(prev)) {
+            out.push(' ');
+        }
+        last = m.end();
+    }
+    out.push_str(&kept[last..]);
+    out
+}
+
+/// One step of the line-start state machine; leadStep in src/pipeline.js.
+/// States: 0 indent (a start), 1 after - * +, 2 digits, 3 after the digits'
+/// . or ), 4 marker and its space (a start), 5 anything else.
+fn lead_step(state: u8, ch: char) -> u8 {
+    if ch == '\n' {
+        return 0;
+    }
+    let blank = ch == ' ' || ch == '\t';
+    match state {
+        0 if blank => 0,
+        0 if matches!(ch, '-' | '*' | '+') => 1,
+        0 if ch.is_ascii_digit() => 2,
+        1 | 3 | 4 if blank => 4,
+        2 if ch.is_ascii_digit() => 2,
+        2 if ch == '.' || ch == ')' => 3,
+        _ => 5,
+    }
+}
+
+/// The Rust twin of mapEmoji in src/pipeline.js: each mapped symbol becomes its
+/// text, spaced so it never glues to a word. test/fixtures/emoji-parity.json
+/// holds cases both suites assert. Linear: the line-start test is a state
+/// machine fed as characters are written, not a re-read of the line.
+pub fn map_emoji(text: &str, map: &[EmojiRow]) -> String {
+    let mut table: Vec<(String, &str, &str)> = Vec::new();
+    for row in map {
+        let symbols: String = row
+            .symbols
+            .chars()
+            .filter(|c| !matches!(c, '\u{FE0E}' | '\u{FE0F}'))
+            .collect();
+        for sym in symbols.split_whitespace() {
+            table.push((sym.to_string(), row.start.as_str(), row.inline.as_str()));
+        }
+    }
+    if table.is_empty() {
+        return text.to_string();
+    }
+    // Longest first; a stable sort keeps map order among equals, as in JS.
+    table.sort_by_key(|(sym, _, _)| std::cmp::Reverse(sym.chars().count()));
+    let mut out = String::with_capacity(text.len());
+    let mut state = 0u8;
+    let mut last: Option<char> = None;
+    // Writes s, feeding the line-start state machine and noting the last char.
+    fn write(out: &mut String, state: &mut u8, last: &mut Option<char>, s: &str) {
+        for ch in s.chars() {
+            *state = lead_step(*state, ch);
+            *last = Some(ch);
+        }
+        out.push_str(s);
+    }
+    let mut i = 0;
+    while i < text.len() {
+        let rest = &text[i..];
+        let Some((sym, start, inline)) = table
+            .iter()
+            .find(|(sym, _, _)| rest.starts_with(sym.as_str()))
+        else {
+            let ch = rest.chars().next().expect("non-empty");
+            write(&mut out, &mut state, &mut last, &text[i..i + ch.len_utf8()]);
+            i += ch.len_utf8();
+            continue;
+        };
+        i += sym.len();
+        let at_start = state == 0 || state == 4;
+        let rep = if at_start && !start.is_empty() {
+            *start
+        } else {
+            *inline
+        };
+        let next = text[i..].chars().next();
+        if rep.is_empty() {
+            if matches!(next, Some(' ' | '\t'))
+                && last.is_none_or(|c| matches!(c, ' ' | '\t' | '\n'))
+            {
+                i += 1;
+            }
+            continue;
+        }
+        if last.is_some_and(|c| {
+            !matches!(
+                c,
+                ' ' | '\t' | '\n' | '(' | '[' | '{' | '"' | '\'' | '/' | '-'
+            )
+        }) {
+            write(&mut out, &mut state, &mut last, " ");
+        }
+        write(&mut out, &mut state, &mut last, rep);
+        if next.is_some_and(|c| {
+            !matches!(
+                c,
+                ' ' | '\t'
+                    | '\n'
+                    | '.'
+                    | ','
+                    | ';'
+                    | ':'
+                    | '!'
+                    | '?'
+                    | ')'
+                    | ']'
+                    | '}'
+                    | '"'
+                    | '\''
+            )
+        }) {
+            write(&mut out, &mut state, &mut last, " ");
+        }
+    }
+    out
+}
+
+/// Latin, for the joiner rule in strip_unicode; the same ranges as isLatin in
+/// src/pipeline.js.
+fn is_latin(c: char) -> bool {
+    let u = c as u32;
+    u < 0x250
+        || (0x1E00..=0x1EFF).contains(&u)
+        || (0x2C60..=0x2C7F).contains(&u)
+        || (0xA720..=0xA7FF).contains(&u)
+        || (0xAB30..=0xAB6F).contains(&u)
+        || (0xFF00..=0xFFEF).contains(&u)
 }
 
 fn tidy(html: &str, o: &HtmlOptions, mode: Mode, expand_spans: bool) -> String {

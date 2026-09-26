@@ -1,0 +1,194 @@
+{
+  "map": [
+    {
+      "symbols": "\u2705 \u2714 \u2713 \u2611",
+      "start": "[x]",
+      "inline": "(yes)"
+    },
+    {
+      "symbols": "\u274c \u2717 \u2718 \u2716 \u274e",
+      "start": "[ ]",
+      "inline": "(no)"
+    },
+    {
+      "symbols": "\u26a0",
+      "start": "Warning:",
+      "inline": "(!)"
+    },
+    {
+      "symbols": "\u2139",
+      "start": "Note:",
+      "inline": "(note)"
+    },
+    {
+      "symbols": "\u2753 \u2754",
+      "start": "(?)",
+      "inline": "(?)"
+    },
+    {
+      "symbols": "\u2757 \u2755",
+      "start": "(!)",
+      "inline": "(!)"
+    },
+    {
+      "symbols": "\u27a1 \u2192",
+      "start": "->",
+      "inline": "->"
+    },
+    {
+      "symbols": "\u2b05 \u2190",
+      "start": "<-",
+      "inline": "<-"
+    },
+    {
+      "symbols": "\u2194",
+      "start": "<->",
+      "inline": "<->"
+    },
+    {
+      "symbols": "\u2b50 \ud83c\udf1f",
+      "start": "*",
+      "inline": "*"
+    },
+    {
+      "symbols": "\ud83d\udd34",
+      "start": "(red)",
+      "inline": "(red)"
+    },
+    {
+      "symbols": "\ud83d\udfe1",
+      "start": "(yellow)",
+      "inline": "(yellow)"
+    },
+    {
+      "symbols": "\ud83d\udfe2",
+      "start": "(green)",
+      "inline": "(green)"
+    },
+    {
+      "symbols": "\ud83d\udc4d",
+      "start": "(+1)",
+      "inline": "(+1)"
+    },
+    {
+      "symbols": "\ud83d\udc4e",
+      "start": "(-1)",
+      "inline": "(-1)"
+    }
+  ],
+  "cases": [
+    {
+      "input": "\u2705 Tests pass\n\u274c Docs missing",
+      "expected": "[x] Tests pass\n[ ] Docs missing"
+    },
+    {
+      "input": "- \u2705 Done\n- \u274c\ufe0f Todo\n  * \u2714\ufe0f nested",
+      "expected": "- [x] Done\n- [ ] Todo\n  * [x] nested"
+    },
+    {
+      "input": "12) \u2705 numbered",
+      "expected": "12) [x] numbered"
+    },
+    {
+      "input": "Status: done \u2705.",
+      "expected": "Status: done (yes)."
+    },
+    {
+      "input": "done\u2705.",
+      "expected": "done (yes)."
+    },
+    {
+      "input": "\u2705Done",
+      "expected": "[x] Done"
+    },
+    {
+      "input": "\u26a0\ufe0f Careful here",
+      "expected": "Warning: Careful here"
+    },
+    {
+      "input": "Next \u27a1\ufe0f step \u2192 then \u2b05 back \u2194 both",
+      "expected": "Next -> step -> then <- back <-> both"
+    },
+    {
+      "input": "\ud83d\ude80 Launch \ud83c\udf89 now",
+      "expected": "Launch now"
+    },
+    {
+      "input": "Rated \u2b50\u2b50 by \ud83c\udf1f users",
+      "expected": "Rated * * by * users"
+    },
+    {
+      "input": "\ud83d\udc4d from me, \ud83d\udc4e from them",
+      "expected": "(+1) from me, (-1) from them"
+    },
+    {
+      "input": "(\u2705) and [\u274c]",
+      "expected": "((yes)) and [(no)]"
+    },
+    {
+      "input": "a \ud83d\ude80 b",
+      "expected": "a b"
+    },
+    {
+      "input": "\u2139\ufe0f Info first\nthen \u2139 mid",
+      "expected": "Note: Info first\nthen (note) mid"
+    },
+    {
+      "input": "\ud83d\udd34 red \ud83d\udfe1 yellow \ud83d\udfe2 green",
+      "expected": "(red) red (yellow) yellow (green) green"
+    },
+    {
+      "input": "\u2753 why \u2757 now",
+      "expected": "(?) why (!) now"
+    },
+    {
+      "input": "\u2713\u2713 twice",
+      "expected": "[x] (yes) twice"
+    },
+    {
+      "input": "x \u2264 y costs \u20ac5",
+      "expected": "x y costs 5"
+    },
+    {
+      "input": "\t\u2705 tabbed",
+      "expected": "\t[x] tabbed"
+    },
+    {
+      "input": "-\u2705 no space after dash",
+      "expected": "-(yes) no space after dash"
+    }
+  ],
+  "custom": {
+    "map": [
+      {
+        "symbols": "\ud83d\ude80",
+        "start": "",
+        "inline": ""
+      },
+      {
+        "symbols": "\ud83d\ude80\u2705",
+        "start": "LONG",
+        "inline": "long"
+      },
+      {
+        "symbols": "\u2705",
+        "start": "",
+        "inline": "ok"
+      }
+    ],
+    "cases": [
+      {
+        "input": "\ud83d\ude80 gone",
+        "expected": "gone"
+      },
+      {
+        "input": "x \ud83d\ude80\u2705 y",
+        "expected": "x long y"
+      },
+      {
+        "input": "\u2705 start falls back",
+        "expected": "ok start falls back"
+      }
+    ]
+  }
+}

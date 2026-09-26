@@ -81,7 +81,9 @@ test("strip markdown and Clean are gone from the app", () => {
 });
 
 test("the cleaning chip counts the five cleaning passes", () => {
-  assert.deepEqual(SETTING_SECTIONS.cleaning, CLEAN_IDS);
+  // The section also holds the Emoji select, which shapes Strip Unicode junk
+  // rather than being a pass of its own, so the chip does not count it.
+  assert.deepEqual(SETTING_SECTIONS.cleaning.filter((id) => id !== "opt-emoji"), CLEAN_IDS);
   assert.equal(CLEAN_IDS.length, 5);
   for (const view of ["text", "markdown", "html", "rendered"]) assert.ok(SETTING_SECTIONS[SECTION_FOR_VIEW[view]], view);
 });

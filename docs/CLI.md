@@ -33,6 +33,10 @@ app's shipped defaults. Turn one off with its `--no-` flag:
 --no-strip-noise --no-strip-unicode --no-strip-markdown --no-bullets
 --no-join-lines --no-strip-indent --no-collapse-blank --no-wrap
 --wrap <n>            Wrap width (default 80)
+--explain            Report to stderr which blocks were kept verbatim, and why
+--emoji <m>          remove (default) deletes emoji; text converts the mapped ones
+                     to text first, then removes the rest
+--emoji-map <file>   A JSON map for --emoji text (default: the app's built-in map)
 -h, --help           Show help
 -v, --version        Show version
 ```
@@ -40,6 +44,50 @@ app's shipped defaults. Turn one off with its `--no-` flag:
 `markdown` and `html` keep markdown regardless of `--no-strip-markdown`: that
 path exists to preserve markup for the renderer, so it never strips it, and it
 also skips bullet normalization and wrapping.
+
+## Emoji to text
+
+With `--emoji text`, strip Unicode converts emoji to text before removing the rest, the same as
+the app's Settings > Emoji > To text. The built-in map is `DEFAULT_EMOJI_MAP` in
+`src/pipeline.js`: a check mark is `[x]` at the start of a line and `(yes)` mid-line, a cross
+`[ ]` and `(no)`, an arrow `->`, and so on. At the start of a list item the line-start text makes
+a markdown task:
+
+```
+$ printf -- '- \u2705 Tests pass\n- \u274c Docs missing' | textmint markdown --emoji text
+- [x] Tests pass
+- [ ] Docs missing
+```
+
+`--emoji-map` takes your own map, the same shape the app's editor saves:
+
+```json
+[
+  { "symbols": "\u2705 \u2714", "start": "[x]", "inline": "(done)" },
+  { "symbols": "\ud83d\ude80", "start": "", "inline": "" }
+]
+```
+
+`symbols` is one or more symbols separated by spaces. `start` is used at the start of a line or
+list item (empty means use `inline`), and `inline` everywhere else (empty means remove it).
+
+## Why was this left alone?
+
+The passes skip anything that looks like code: fenced blocks, tables, box diagrams, YAML
+frontmatter, and unfenced code, logs, shell transcripts, diffs, JSON, YAML and command lists
+(`scanProtected()` in `src/pipeline.js`). `--explain` lists each of those blocks on stderr with
+its lines and the reason, so the cleaned text on stdout stays pipeable:
+
+```
+$ pbpaste | textmint clean --explain > /dev/null
+textmint: passes: stripNoise, stripUnicode, stripMarkdown, ...
+textmint: kept verbatim:
+textmint:   lines 1-15    code (shell transcript)           jordan@host app % git status
+textmint:   lines 20-22   fence                             ```js
+```
+
+A block kept verbatim that should have been cleaned, or the reverse, makes a good bug report:
+the input and the `--explain` output are all it needs.
 
 ## HTML input
 

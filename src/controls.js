@@ -21,7 +21,12 @@ export const CLEAN_IDS = [
 // opens at the section for the active Output tab, and test/controls.test.js
 // checks index.html against this. opt-wrap's row also holds opt-wrap-width.
 export const SETTING_SECTIONS = {
-  cleaning: CLEAN_IDS,
+  // The cleaning passes, with the Emoji setting under Strip Unicode junk,
+  // whose emoji it decides the fate of.
+  cleaning: [
+    "opt-strip-noise", "opt-strip-unicode", "opt-emoji", "opt-join-lines", "opt-strip-indent",
+    "opt-collapse-blank",
+  ],
   paste: ["opt-rich-paste", "md-math", "md-merged"],
   text: ["opt-bullets", "opt-wrap"],
   markdown: [

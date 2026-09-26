@@ -9,8 +9,8 @@
       "markdown": "running a tool\nanother\nreal content"
     },
     "stripUnicode": {
-      "clean": "Thought for 8s\n● running a tool\n another\nreal content (ctrl+o to expand)",
-      "markdown": "Thought for 8s\n● running a tool\n another\nreal content (ctrl+o to expand)"
+      "clean": "Thought for 8s\n● running a tool\nanother\nreal content (ctrl+o to expand)",
+      "markdown": "Thought for 8s\n● running a tool\nanother\nreal content (ctrl+o to expand)"
     },
     "stripMarkdown": {
       "clean": "Thought for 8s\n● running a tool\n⏺ another\nreal content (ctrl+o to expand)",
@@ -433,7 +433,7 @@
       "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks."
     },
     "stripMarkdown": {
-      "clean": "Heading\n\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks.",
+      "clean": "Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks.",
       "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks."
     },
     "bullets": {
@@ -441,8 +441,8 @@
       "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks."
     },
     "joinLines": {
-      "clean": "# Heading\n\nPara one. Para two continues here.\n\n\n\n\nAfter many blanks.",
-      "markdown": "# Heading\n\nPara one. Para two continues here.\n\n\n\n\nAfter many blanks."
+      "clean": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks.",
+      "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks."
     },
     "stripIndent": {
       "clean": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks.",
@@ -457,46 +457,46 @@
       "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\n\n\n\nAfter many blanks."
     },
     "all": {
-      "clean": "Heading\n\n\nPara one. Para two continues here.\n\nAfter many blanks.",
-      "markdown": "# Heading\n\nPara one. Para two continues here.\n\nAfter many blanks."
+      "clean": "Heading\n\nPara one.\nPara two continues here.\n\nAfter many blanks.",
+      "markdown": "# Heading\n\nPara one.\nPara two continues here.\n\nAfter many blanks."
     }
   },
   "indented": {
     "none": {
-      "clean": "indented line\n\ttabbed line",
-      "markdown": "indented line\n\ttabbed line"
+      "clean": "    indented line\n\ttabbed line",
+      "markdown": "    indented line\n\ttabbed line"
     },
     "stripNoise": {
-      "clean": "indented line\n\ttabbed line",
-      "markdown": "indented line\n\ttabbed line"
+      "clean": "    indented line\n\ttabbed line",
+      "markdown": "    indented line\n\ttabbed line"
     },
     "stripUnicode": {
-      "clean": "indented line\n\ttabbed line",
-      "markdown": "indented line\n\ttabbed line"
+      "clean": "    indented line\n\ttabbed line",
+      "markdown": "    indented line\n\ttabbed line"
     },
     "stripMarkdown": {
-      "clean": "indented line\n\ttabbed line",
-      "markdown": "indented line\n\ttabbed line"
+      "clean": "    indented line\n\ttabbed line",
+      "markdown": "    indented line\n\ttabbed line"
     },
     "bullets": {
-      "clean": "indented line\n\ttabbed line",
-      "markdown": "indented line\n\ttabbed line"
+      "clean": "    indented line\n\ttabbed line",
+      "markdown": "    indented line\n\ttabbed line"
     },
     "joinLines": {
-      "clean": "indented line\ntabbed line",
-      "markdown": "indented line\ntabbed line"
+      "clean": "    indented line\n\ttabbed line",
+      "markdown": "    indented line\n\ttabbed line"
     },
     "stripIndent": {
       "clean": "indented line\ntabbed line",
       "markdown": "indented line\ntabbed line"
     },
     "collapseBlank": {
-      "clean": "indented line\n\ttabbed line",
-      "markdown": "indented line\n\ttabbed line"
+      "clean": "    indented line\n\ttabbed line",
+      "markdown": "    indented line\n\ttabbed line"
     },
     "wrap": {
-      "clean": "indented line\n\ttabbed line",
-      "markdown": "indented line\n\ttabbed line"
+      "clean": "    indented line\n\ttabbed line",
+      "markdown": "    indented line\n\ttabbed line"
     },
     "all": {
       "clean": "indented line\ntabbed line",

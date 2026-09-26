@@ -20,7 +20,7 @@
 // that, --plain turns detection off. --flavor commonmark|github|obsidian and
 // --html-mode clean|markdown match the app's Settings.
 
-import { clean, cleanToMarkdown, looksLikeHtml } from "../src/pipeline.js";
+import { clean, cleanToMarkdown, looksLikeHtml, normalizeInput, scanProtected, DEFAULT_EMOJI_MAP } from "../src/pipeline.js";
 import { MD_PRESETS, HTML_DEFAULTS, renderFlavorFor } from "../src/controls.js";
 import { readFileSync, writeFileSync, existsSync, unlinkSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -32,7 +32,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // Every accepted flag. An unknown one (a typo like --no-strip-markdow) is
 // rejected rather than ignored, so a silently-on pass never surprises a caller.
 const KNOWN_FLAGS = new Set([
-  "help", "version", "wrap", "from-html", "plain", "flavor", "html-mode",
+  "help", "version", "wrap", "from-html", "plain", "flavor", "html-mode", "explain",
+  "emoji", "emoji-map",
   "no-strip-noise", "no-strip-unicode", "no-strip-markdown", "no-bullets",
   "no-join-lines", "no-strip-indent", "no-collapse-blank", "no-wrap",
 ]);
@@ -55,6 +56,10 @@ Options (clean/markdown/html), all on by default:
   --no-join-lines --no-strip-indent --no-collapse-blank
   --no-wrap            Do not hard-wrap lines
   --wrap <n>           Wrap width (default 80)
+  --explain            Report to stderr which blocks were kept verbatim and why
+  --emoji <m>          remove (default) deletes emoji; text converts mapped ones
+                       to text first ([x] for a check mark), then removes the rest
+  --emoji-map <file>   JSON map for --emoji text: [{"symbols","start","inline"}]
 
 HTML input is detected and kept formatted, as the app's rich paste does:
   --from-html          Treat the input as HTML even if it does not look like it
@@ -79,7 +84,7 @@ function parseArgs(argv) {
       const n = parseInt(argv[++i], 10);
       if (!Number.isFinite(n)) fail("--wrap needs a number");
       wrapWidth = n;
-    } else if (a === "--flavor" || a === "--html-mode") {
+    } else if (a === "--flavor" || a === "--html-mode" || a === "--emoji" || a === "--emoji-map") {
       const v = argv[++i];
       if (!v || v.startsWith("--")) fail(a + " needs a value");
       flags.add(a.slice(2));
@@ -97,6 +102,25 @@ function parseArgs(argv) {
   return { positional, flags, values, wrapWidth };
 }
 
+// The emoji map for --emoji text: the file given by --emoji-map, else the
+// built-in one the app starts with. null (remove every emoji) otherwise.
+function emojiMapFrom(values) {
+  const mode = values.emoji || "remove";
+  if (!["remove", "text"].includes(mode)) fail("--emoji must be remove or text");
+  if (values["emoji-map"] && mode !== "text") fail("--emoji-map needs --emoji text");
+  if (mode === "remove") return null;
+  if (!values["emoji-map"]) return DEFAULT_EMOJI_MAP;
+  let map;
+  try { map = JSON.parse(readFileSync(values["emoji-map"], "utf8")); } catch (e) {
+    fail("--emoji-map: " + (e && e.message ? e.message : e));
+  }
+  const ok = Array.isArray(map) && map.every((r) => r && typeof r === "object" &&
+    Object.keys(r).every((k) => ["symbols", "start", "inline"].includes(k)) &&
+    typeof r.symbols === "string" && ["start", "inline"].every((k) => r[k] === undefined || typeof r[k] === "string"));
+  if (!ok) fail('--emoji-map must be a JSON list of {"symbols", "start", "inline"} strings');
+  return map.map((r) => ({ symbols: r.symbols, start: r.start || "", inline: r.inline || "" }));
+}
+
 function optsFrom({ flags, values, wrapWidth }) {
   const on = (name) => !flags.has("no-" + name);
   const preset = MD_PRESETS[values.flavor || "github"] || MD_PRESETS.github;
@@ -105,6 +129,7 @@ function optsFrom({ flags, values, wrapWidth }) {
     mdHighlight: preset["md-highlight"],
     stripNoise: on("strip-noise"),
     stripUnicode: on("strip-unicode"),
+    emojiMap: emojiMapFrom(values),
     stripMarkdown: on("strip-markdown"),
     bullets: on("bullets"),
     joinLines: on("join-lines"),
@@ -195,6 +220,24 @@ function openInGui(text) {
   process.stderr.write("textmint: launched Textmint (" + text.length + " chars)\n");
 }
 
+// What --explain prints: the passes that ran, then every block kept verbatim
+// (fences, tables, box diagrams, frontmatter, and code found without a fence)
+// with its lines and the reason. On stderr, so stdout stays pipeable.
+function explain(text, opts) {
+  const lines = normalizeInput(text).split("\n");
+  const on = Object.keys(opts).filter((k) => opts[k] === true);
+  const out = ["passes: " + (on.join(", ") || "none")];
+  const ranges = scanProtected(lines);
+  out.push(ranges.length ? "kept verbatim:" : "kept verbatim: nothing; every line is prose");
+  for (const r of ranges) {
+    const span = r.to - r.from === 1 ? "line " + (r.from + 1) : "lines " + (r.from + 1) + "-" + r.to;
+    const first = lines.slice(r.from, r.to).find((l) => l.trim()) || "";
+    const head = first.trim().length > 48 ? first.trim().slice(0, 47) + "..." : first.trim();
+    out.push("  " + span.padEnd(14) + (r.why ? r.kind + " (" + r.why + ")" : r.kind).padEnd(34) + head);
+  }
+  process.stderr.write(out.map((l) => "textmint: " + l).join("\n") + "\n");
+}
+
 async function main() {
   const { positional, flags, values, wrapWidth } = parseArgs(process.argv.slice(2));
   for (const f of flags) {
@@ -229,14 +272,18 @@ async function main() {
     return { text: runEngine(["--from-html", "--options", JSON.stringify({ math })], raw), html: raw };
   };
 
+  // Loaded once, so --explain reports on exactly the text that is cleaned.
+  const input = ["clean", "markdown", "md", "html"].includes(cmd) ? await load() : null;
+  if (input && flags.has("explain")) explain(input.text, opts);
+
   if (cmd === "clean") {
-    process.stdout.write(clean((await load()).text, opts));
+    process.stdout.write(clean(input.text, opts));
   } else if (cmd === "markdown" || cmd === "md") {
-    process.stdout.write(cleanToMarkdown((await load()).text, opts));
+    process.stdout.write(cleanToMarkdown(input.text, opts));
   } else if (cmd === "html") {
-    const { text, html } = await load();
+    const { text, html } = input;
     if (html != null && htmlMode === "clean") {
-      const o = { ...HTML_DEFAULTS, stripUnicode: opts.stripUnicode };
+      const o = { ...HTML_DEFAULTS, stripUnicode: opts.stripUnicode, emojiMap: opts.emojiMap };
       process.stdout.write(runEngine(["--clean-html", "--options", JSON.stringify(o)], html));
     } else {
       process.stdout.write(renderMarkdown(cleanToMarkdown(text, opts), renderFlavor));

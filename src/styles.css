@@ -305,6 +305,9 @@ textarea::placeholder { color: var(--clr-border); }
 .md-body p { margin: 0.5em 0; }
 .md-body ul, .md-body ol { margin: 0.5em 0; padding-left: 1.5em; }
 .md-body li { margin: 0.2em 0; }
+/* A task list item shows its checkbox instead of a bullet, as GitHub does. */
+.md-body li:has(> input[type="checkbox"]:first-child) { list-style: none; margin-left: -1.3em; }
+.md-body li > input[type="checkbox"]:first-child { margin: 0 0.4em 0 0; vertical-align: -1px; }
 .md-body a { color: var(--clr-accent-text); }
 .md-body code {
   font-family: ui-monospace, "SF Mono", "JetBrains Mono", Consolas, monospace;
@@ -481,6 +484,57 @@ textarea::placeholder { color: var(--clr-border); }
   cursor: pointer;
 }
 .link-btn:hover { color: var(--clr-mint); text-decoration: underline; }
+
+/* The Emoji setting: its select and the Edit map link share one grid cell. */
+.emoji-control { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.emoji-control select { flex: 1; }
+
+/* Emoji map editor. */
+.emoji-card { width: min(560px, calc(100vw - 32px)); margin-top: 8vh; }
+.emoji-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1fr 28px;
+  gap: 6px;
+  align-items: center;
+}
+.emoji-head {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--clr-muted);
+  margin-bottom: 4px;
+}
+.emoji-rows { display: grid; gap: 6px; max-height: 46vh; overflow-y: auto; padding-right: 2px; }
+.emoji-rows input {
+  min-width: 0;
+  background: var(--clr-bg);
+  border: 1px solid var(--clr-border);
+  color: var(--clr-text);
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+.emoji-rows input:focus-visible { outline: 2px solid var(--clr-mint); outline-offset: 1px; }
+.emoji-del {
+  background: transparent;
+  border: none;
+  color: var(--clr-muted);
+  font-size: 18px;
+  line-height: 1;
+  padding: 2px 6px;
+}
+.emoji-del:hover { color: var(--clr-mint); }
+.emoji-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--clr-border-sub);
+}
+.emoji-actions #emoji-done { margin-left: auto; }
 
 /* Settings drawer: non-modal, over the input pane, so the output stays live. */
 .drawer {

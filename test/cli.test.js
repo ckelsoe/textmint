@@ -122,3 +122,37 @@ test("--flavor rejects an unknown value", () => {
   assert.notEqual(r.status, 0);
   assert.ok(r.stderr.includes("--flavor"), r.stderr);
 });
+
+test("--explain reports protected blocks on stderr and leaves stdout alone", () => {
+  const input = "Intro text here.\n\n$ npm test\n> textmint test\nok 1\n\n```js\nx()\n```";
+  const plain = run(["clean"], input);
+  const r = run(["clean", "--explain"], input);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stdout, plain.stdout, "--explain must not change the output");
+  assert.match(r.stderr, /lines 3-5 +code \(shell transcript\)/);
+  assert.match(r.stderr, /lines 7-9 +fence/);
+});
+
+test("--emoji text converts mapped emoji; the default still removes them", () => {
+  const input = "- \u2705 Tests pass\n- \u274C Docs missing \u{1F680}";
+  assert.equal(run(["clean", "--no-bullets"], input).stdout, "- Tests pass\n- Docs missing");
+  const r = run(["markdown", "--emoji", "text"], input);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stdout, "- [x] Tests pass\n- [ ] Docs missing");
+});
+
+test("--emoji-map reads a custom map and rejects a bad one", async () => {
+  const { writeFileSync, mkdtempSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const dir = mkdtempSync(join(tmpdir(), "textmint-emoji-"));
+  const good = join(dir, "map.json");
+  writeFileSync(good, JSON.stringify([{ symbols: "\u2705", start: "DONE", inline: "done" }]));
+  const r = run(["markdown", "--emoji", "text", "--emoji-map", good], "\u2705 a, b \u2705");
+  assert.equal(r.stdout, "DONE a, b done");
+  const bad = join(dir, "bad.json");
+  writeFileSync(bad, JSON.stringify({ symbols: "x" }));
+  const r2 = run(["clean", "--emoji", "text", "--emoji-map", bad], "x");
+  assert.notEqual(r2.status, 0);
+  assert.match(r2.stderr, /--emoji-map must be/);
+  assert.notEqual(run(["clean", "--emoji", "sometimes"], "x").status, 0);
+});
