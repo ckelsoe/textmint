@@ -30,9 +30,11 @@ not a few hundred.
   formatting comes with it: headings, lists, bold and tables arrive as markdown, and the
   HTML output keeps the source's formatting with the junk (Word's `mso-*` styles, fake
   bullets, tracking parameters) removed.
-- **One settings drawer** beside the live output: the cleaning passes, paste handling, and
-  each output's options (markdown flavor and style, what the HTML keeps). Pin the settings
-  you change often to a bar under the header.
+- **One settings drawer** beside the live output, one tab per section: the cleaning passes,
+  paste handling, and each output's options (markdown flavor and style, what the HTML keeps).
+  The less common settings sit under More options. Pin the settings you change often to a bar
+  under the header.
+- **Clear with undo** in the input pane: Undo, or `Cmd+Z` straight after, brings the text back.
 - Live output as you type or paste, saved preferences, dark/light mode, keyboard shortcuts
   (`Cmd+Shift+C` copy text, `Cmd+Shift+M` copy markdown, `Cmd+Shift+H` copy HTML).
 

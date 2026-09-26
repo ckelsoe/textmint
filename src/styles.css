@@ -3,6 +3,7 @@
 :root {
   --clr-bg:          #202322;
   --clr-surface:     #282b2a;
+  --clr-raised:      #2f3331;
   --clr-border:      #363a38;
   --clr-border-sub:  #262928;
   --clr-text:        #e7ebe9;
@@ -16,9 +17,6 @@
   --clr-accent-text: #57d6b3;
   --clr-sec:         #313633;
   --clr-sec-h:       #3c433f;
-  --clr-clear:       #262928;
-  --clr-clear-h:     #313633;
-  --clr-clear-txt:   #a4aca8;
   --clr-tip-bg:      #191c1b;
   --clr-tip-bd:      #3c433f;
   --clr-tip-txt:     #d6e4de;
@@ -29,6 +27,7 @@
 [data-theme="light"] {
   --clr-bg:          #edf0ef;
   --clr-surface:     #f5f8f7;
+  --clr-raised:      #fafcfb;
   --clr-border:      #dbe1df;
   --clr-border-sub:  #e7ebe9;
   --clr-text:        #1a201e;
@@ -42,9 +41,6 @@
   --clr-accent-text: #0e8e6f;
   --clr-sec:         #dfe6e3;
   --clr-sec-h:       #cfddd7;
-  --clr-clear:       #dbe1df;
-  --clr-clear-h:     #cfddd7;
-  --clr-clear-txt:   #515a57;
   --clr-tip-bg:      #1a201e;
   --clr-tip-bd:      #3c433f;
   --clr-tip-txt:     #e7ebe9;
@@ -155,12 +151,15 @@ button {
 #btn-copy:hover, #btn-copy-md:hover, #btn-copy-html:hover { background: var(--clr-sec-h); }
 #btn-copy.copied, #btn-copy-md.copied, #btn-copy-html.copied { background: var(--clr-mint); color: var(--clr-mint-txt); }
 
-#btn-clear {
-  background: var(--clr-clear);
-  color: var(--clr-clear-txt);
-  border: 1px solid var(--clr-border);
+/* Text for screen readers only. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
-#btn-clear:hover { background: var(--clr-clear-h); }
 
 /* Round icon buttons in the header: theme and settings. */
 .icon-btn {
@@ -240,6 +239,24 @@ textarea:focus-visible {
   font-weight: 600;
 }
 .pane-label .rich-chip[hidden] { display: none; }
+
+/* Clear, at the right of the Input header while there is text, and the Undo
+   offer that follows it. */
+.pane-label .pane-clear {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--clr-dim);
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0.02em;
+}
+.pane-label .pane-clear:hover { color: var(--clr-text); border-color: var(--clr-border); }
+.pane-label .pane-clear[hidden], .pane-label .clear-undo[hidden] { display: none; }
+.pane-label .clear-undo { color: var(--clr-dim); text-transform: none; letter-spacing: 0.02em; }
+.pane-label .clear-undo .link-btn { font-size: 11px; font-weight: 600; }
 
 textarea {
   flex: 1;
@@ -485,6 +502,11 @@ textarea::placeholder { color: var(--clr-border); }
 }
 .link-btn:hover { color: var(--clr-mint); text-decoration: underline; }
 
+/* On the raised drawer, links use --clr-mint: --clr-accent-text is ~4.0:1 on the
+   light --clr-raised, under AA for 13px text (docs/DESIGN.md). */
+.drawer .link-btn { color: var(--clr-mint); }
+.drawer .link-btn:hover { color: var(--clr-mint-h); }
+
 /* The Emoji setting: its select and the Edit map link share one grid cell. */
 .emoji-control { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .emoji-control select { flex: 1; }
@@ -542,13 +564,13 @@ textarea::placeholder { color: var(--clr-border); }
   top: 0;
   bottom: 0;
   left: 0;
-  width: min(380px, 50%);
+  width: min(440px, 50%);
   z-index: 20;
   overflow-y: auto;
   padding: 16px 18px 24px;
-  background: var(--clr-surface);
+  background: var(--clr-raised);
   border-right: 1px solid var(--clr-border);
-  box-shadow: 8px 0 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 8px 0 28px rgba(0, 0, 0, 0.32);
 }
 .drawer[hidden] { display: none; }
 @media (max-width: 800px) {
@@ -557,26 +579,64 @@ textarea::placeholder { color: var(--clr-border); }
 .drawer-head { display: flex; align-items: center; justify-content: space-between; }
 .drawer-head h2 { font-size: 18px; }
 .drawer-head .modal-close { position: static; }
-.drawer h2:focus, .drawer h3:focus { outline: none; }
+.drawer h2:focus { outline: none; }
 .settings-intro { color: var(--clr-dim); font-size: 12px; line-height: 1.5; margin: 4px 0 2px; }
-.settings-section {
-  border-top: 1px solid var(--clr-border-sub);
-  padding-top: 12px;
+/* One tab per section; the chosen one is underlined in mint. */
+.settings-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
   margin-top: 12px;
-  display: grid;
-  gap: 6px;
+  border-bottom: 1px solid var(--clr-border);
 }
-.settings-section h3 {
+.settings-tab {
+  background: transparent;
+  color: var(--clr-dim);
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  margin-bottom: -1px;
+  padding: 6px 8px;
   font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--clr-text);
+  font-weight: 600;
 }
-.settings-note { font-size: 12px; color: var(--clr-muted); line-height: 1.5; margin-bottom: 2px; }
+.settings-tab:hover { color: var(--clr-text); }
+.settings-tab[aria-selected="true"] { color: var(--clr-text); border-bottom-color: var(--clr-mint); }
+.settings-section {
+  padding-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+.settings-section[hidden] { display: none; }
+.settings-note { font-size: 12px; color: var(--clr-dim); line-height: 1.5; margin-bottom: 2px; }
+
+/* More options: the section's less common settings, folded away. */
+.more { margin-top: 4px; border-top: 1px solid var(--clr-border-sub); padding-top: 8px; }
+.more > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--clr-dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  list-style: none;
+  user-select: none;
+}
+.more > summary::-webkit-details-marker { display: none; }
+.more > summary::before { content: "\25B8"; font-size: 10px; transition: transform 0.15s; }
+.more[open] > summary::before { transform: rotate(90deg); }
+.more > summary:hover { color: var(--clr-text); }
+.more > summary:focus-visible { outline: 2px solid var(--clr-mint); outline-offset: 2px; border-radius: 4px; }
+.more-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--clr-mint); }
+.more-dot[hidden] { display: none; }
+.more-body { display: grid; gap: 8px; padding-top: 8px; }
+
 .setting-row {
   display: grid;
-  grid-template-columns: 130px 1fr auto;
+  /* One control width for every row, so the selects line up; 190px holds the
+     longest option ("Drop embedded images"). */
+  grid-template-columns: minmax(0, 1fr) 190px auto;
   align-items: center;
   gap: 8px;
   font-size: 13px;
@@ -584,6 +644,7 @@ textarea::placeholder { color: var(--clr-border); }
 }
 .setting-row select {
   min-width: 0;
+  width: 100%;
   background: var(--clr-bg);
   border: 1px solid var(--clr-border);
   color: var(--clr-text);
@@ -610,6 +671,12 @@ textarea::placeholder { color: var(--clr-border); }
 }
 .pin:hover { color: var(--clr-text); border-color: var(--clr-border); }
 .pin[aria-pressed="true"] { color: var(--clr-mint); }
+/* Hidden, not removed, until the row is hovered or focused, so Tab still
+   reaches it; a pinned setting always shows its pin. */
+.drawer [data-setting] .pin { opacity: 0; transition: opacity 0.15s; }
+.drawer [data-setting]:hover .pin,
+.drawer [data-setting]:focus-within .pin,
+.drawer .pin[aria-pressed="true"] { opacity: 1; }
 
 /* Output tab row: the cleaning summary and the settings gear, right-aligned. */
 .tab-row-right { display: flex; align-items: center; gap: 8px; }

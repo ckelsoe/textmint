@@ -19,7 +19,9 @@ import {
   const btnCopy      = document.getElementById("btn-copy");
   const btnCopyMd    = document.getElementById("btn-copy-md");
   const btnCopyHtml  = document.getElementById("btn-copy-html");
-  const btnClear     = document.getElementById("btn-clear");
+  const btnClear     = document.getElementById("btn-clear");     // in the Input pane
+  const clearUndoEl  = document.getElementById("clear-undo");
+  const btnUndoClear = document.getElementById("btn-undo-clear");
   const statIn       = document.getElementById("stat-in");
   const statOut      = document.getElementById("stat-out");
   const statLines    = document.getElementById("stat-lines");
@@ -168,7 +170,17 @@ import {
   function setHeld(html) {
     heldHtml = html || null;
     richChip.hidden = !heldHtml;
-    inputHint.hidden = !!heldHtml;
+    syncInputChrome();
+  }
+
+  // The Input pane header: Clear while there is text, the "paste AI output
+  // here" hint while there is none (and no Undo offer is showing). Once the
+  // input has text again, a cleared text can no longer be brought back.
+  function syncInputChrome() {
+    const has = inputEl.value !== "";
+    btnClear.hidden = !has;
+    inputHint.hidden = has || !clearUndoEl.hidden;
+    if (has && undoStash) dropUndo();
   }
 
   // Replace the selection with text. Not execCommand("insertText"): WebKit
@@ -201,6 +213,7 @@ import {
   }
 
   inputEl.addEventListener("paste", (e) => {
+    if (undoStash) dropUndo(); // a paste replaces what a Clear kept
     if (!val("opt-rich-paste") || !e.clipboardData) return;
     const plain = e.clipboardData.getData("text/plain");
     let html = e.clipboardData.getData("text/html");
@@ -228,6 +241,7 @@ import {
   let renderSeq = 0;
   async function render() {
     const seq = ++renderSeq;
+    syncInputChrome();
     const o = opts();
     const input = inputEl.value;
     const md = cleanToMarkdown(input, o);
@@ -254,6 +268,50 @@ import {
     outputRendEl.innerHTML = "";
     outputHtmlEl.value = "";
     updateStats("", "");
+    dropUndo(); // clearWithUndo sets its stash after this returns
+    syncInputChrome();
+  }
+
+  // Clear from the Input pane, with our own undo: setting .value from code
+  // wipes WebKit's native undo stack, so the cleared text and any held rich
+  // paste are kept here. They come back from the Undo link (shown about five
+  // seconds) or Cmd/Ctrl+Z, while the input is still empty; the next edit drops
+  // them. The bridge's clear calls actClear() directly and keeps no undo.
+  let undoStash = null;
+  let undoTimer = null;
+
+  function dropUndo() {
+    undoStash = null;
+    clearTimeout(undoTimer);
+    clearUndoEl.hidden = true;
+  }
+
+  function clearWithUndo() {
+    if (!inputEl.value) return;
+    const stash = { text: inputEl.value, html: heldHtml };
+    actClear();
+    undoStash = stash;
+    clearUndoEl.hidden = false;
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(() => {
+      if (clearUndoEl.contains(document.activeElement)) inputEl.focus();
+      clearUndoEl.hidden = true;
+      syncInputChrome();
+    }, 5000);
+    syncInputChrome();
+    inputEl.focus(); // the Clear button hides; keep focus where Cmd+Z applies
+  }
+
+  async function undoClear() {
+    const stash = undoStash;
+    dropUndo();
+    if (!stash || inputEl.value !== "") { syncInputChrome(); return false; }
+    inputEl.value = stash.text;
+    setHeld(stash.html);
+    if (stash.html) await reconvert(); // Math or merged tables may have changed since
+    inputEl.focus();
+    await render();
+    return true;
   }
 
   async function actCopy() {
@@ -326,7 +384,21 @@ import {
   }
   COPIES.forEach((c) => c.btn.addEventListener("click", () => copyVia(c)));
 
-  btnClear.addEventListener("click", actClear);
+  btnClear.addEventListener("click", clearWithUndo);
+  btnUndoClear.addEventListener("click", () => { undoClear(); });
+
+  // Cmd/Ctrl+Z straight after a Clear, while the input is still empty. Only
+  // from the input or a non-text control, so undo in another field stays its own.
+  document.addEventListener("keydown", (e) => {
+    if (!undoStash || !(e.metaKey || e.ctrlKey) || e.shiftKey || e.altKey) return;
+    if (e.key.toLowerCase() !== "z" || inputEl.value !== "") return;
+    const t = e.target;
+    const editable = t && (t.isContentEditable || t.tagName === "TEXTAREA" ||
+      (t.tagName === "INPUT" && /^(text|number|search|url|email|password|tel)$/.test(t.type)));
+    if (editable && t !== inputEl) return;
+    e.preventDefault();
+    undoClear();
+  });
 
   document.addEventListener("keydown", (e) => {
     if (!(e.metaKey || e.ctrlKey) || !e.shiftKey) return;
@@ -375,6 +447,8 @@ import {
   let debounceTimer;
   inputEl.addEventListener("input", () => {
     if (!applyingPaste && heldHtml) setHeld(null); // an edit: the HTML no longer matches
+    if (undoStash) dropUndo(); // an edit: the cleared text is gone for good
+    syncInputChrome();
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(render, 400);
   });
@@ -418,6 +492,7 @@ import {
   // --- Init -----------------------------------------------------------------
   loadPrefs();
   drawer = initDrawer({ activeView, onChange: onSettingChange });
+  syncInputChrome();
   initEmojiMap({ onChange: render });
   try { applyTheme(localStorage.getItem("textmint-theme") === "light"); } catch (e) {}
   try { showView(localStorage.getItem(TAB_KEY) || "text"); } catch (e) { showView("text"); }

@@ -10,7 +10,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
   HTML_DEFAULTS, HTML_OPTION_IDS, MD_PRESETS, SETTING_IDS, CHECK_IDS, CLEAN_IDS,
-  SETTING_SECTIONS, SECTION_FOR_VIEW, knownPrefs, knownPins,
+  SETTING_SECTIONS, SECTION_FOR_VIEW, knownPrefs, knownPins, drawerSectionFor, changed,
 } from "../src/controls.js";
 
 const HTML = readFileSync(new URL("../src/index.html", import.meta.url), "utf8");
@@ -73,11 +73,53 @@ test("every setting sits in its drawer section, and every row is listed", () => 
   for (const id of listed) assert.ok(saved.has(id), id + " is in a section but not saved");
 });
 
+// The rows each section folds under "More options" (docs/plans/settings-redesign.md).
+// A row moved in or out of a disclosure is a design change: update this too.
+const MORE_OPTIONS = {
+  paste: ["md-math", "md-merged"],
+  text: ["opt-bullets"],
+  markdown: ["md-bullet", "md-emphasis", "md-heading", "md-fence", "md-links", "md-highlight", "md-callouts", "md-wrap"],
+  html: ["html-styles", "html-images", "html-colors", "html-fonts", "html-table-style", "html-classes", "html-tidy"],
+};
+
+test("More options rows sit in their own section's disclosure", () => {
+  const all = [...HTML.matchAll(/<details class="more" data-more="(\w+)">([\s\S]*?)<\/details>/g)];
+  assert.deepEqual(all.map((m) => m[1]).sort(), Object.keys(MORE_OPTIONS).sort(), "one disclosure per section, none in Cleaning");
+  for (const [key, ids] of Object.entries(SETTING_SECTIONS)) {
+    const body = sectionHtml(key);
+    const d = body.match(/<details class="more" data-more="(\w+)">([\s\S]*?)<\/details>/);
+    if (key === "cleaning") { assert.equal(d, null, "Cleaning has no More options"); continue; }
+    assert.ok(d, key + " has no More options");
+    assert.equal(d[1], key, "section " + key + " holds the disclosure for " + d[1]);
+    const inside = [...d[2].matchAll(/data-setting="([\w-]+)"/g)].map((m) => m[1]);
+    assert.ok(inside.length > 0, key + ": an empty More options");
+    for (const id of inside) assert.ok(ids.includes(id), id + " is under More options in " + key + " but belongs elsewhere");
+    assert.deepEqual(inside.slice().sort(), MORE_OPTIONS[key].slice().sort(), key + " More options rows");
+  }
+});
+
+test("each section has a tab title and is a tabpanel", () => {
+  for (const key of Object.keys(SETTING_SECTIONS)) {
+    const open = HTML.match(new RegExp('<section[^>]*data-section="' + key + '"[^>]*>'))[0];
+    assert.match(open, /data-title="[^"]+"/, key + " has no data-title");
+    assert.match(open, /role="tabpanel"/, key);
+    assert.match(open, new RegExp('aria-labelledby="settings-tab-' + key + '"'), key);
+  }
+});
+
 test("strip markdown and Clean are gone from the app", () => {
   assert.ok(!HTML.includes("opt-strip-markdown"));
   assert.ok(!HTML.includes('id="btn-clean"'));
   assert.ok(!CHECK_IDS.includes("opt-strip-markdown"));
   for (const id of ["btn-copy", "btn-copy-md", "btn-copy-html"]) assert.ok(HTML.includes('id="' + id + '"'), id);
+});
+
+test("Clear lives in the Input pane header, not the app header", () => {
+  const header = HTML.match(/<header>([\s\S]*?)<\/header>/)[1];
+  assert.ok(!header.includes("Clear"), "the app header still has a Clear button");
+  const inputLabel = HTML.match(/<div class="pane-label">Input([\s\S]*?)<\/div>/)[1];
+  assert.ok(inputLabel.includes('id="btn-clear"'), "no Clear in the Input pane header");
+  assert.ok(inputLabel.includes('id="btn-undo-clear"'), "no Undo in the Input pane header");
 });
 
 test("the cleaning chip counts the five cleaning passes", () => {
@@ -97,4 +139,22 @@ test("prefs from 0.5.0 lose the settings that no longer exist", () => {
 test("pins keep only real settings, once each, in pin order", () => {
   assert.deepEqual(knownPins(["md-flavor", "opt-strip-markdown", "md-flavor", "opt-wrap", "opt-wrap-width"]), ["md-flavor", "opt-wrap"]);
   assert.deepEqual(knownPins("nope"), []);
+});
+
+test("the gear reopens the last tab only while the Output tab is unchanged", () => {
+  assert.equal(drawerSectionFor("markdown", "paste", "markdown"), "paste");
+  assert.equal(drawerSectionFor("text", "paste", "markdown"), "text");
+  assert.equal(drawerSectionFor("rendered", null, null), "html");
+  assert.equal(drawerSectionFor("bogus", null, null), "cleaning");
+});
+
+test("the More options dot flags a control off its markup default", () => {
+  assert.equal(changed({ type: "checkbox", checked: true, defaultChecked: true }), false);
+  assert.equal(changed({ type: "checkbox", checked: false, defaultChecked: true }), true);
+  const options = [{ value: "a", defaultSelected: false }, { value: "b", defaultSelected: true }];
+  assert.equal(changed({ type: "select-one", tagName: "SELECT", options, value: "b" }), false);
+  assert.equal(changed({ type: "select-one", tagName: "SELECT", options, value: "a" }), true);
+  const plain = [{ value: "x", defaultSelected: false }, { value: "y", defaultSelected: false }];
+  assert.equal(changed({ type: "select-one", tagName: "SELECT", options: plain, value: "x" }), false);
+  assert.equal(changed({ type: "select-one", tagName: "SELECT", options: plain, value: "y" }), true);
 });

@@ -5,14 +5,21 @@
 // non-modal: it slides over the input pane and leaves the output live, so a
 // change shows as it is made. See docs/plans/settings-drawer.md.
 //
+// The drawer shows one section at a time, as tabs built from SETTING_SECTIONS.
+// Each section shows its common settings; the rest sit in a "More options"
+// <details> whose open state is remembered per section. See
+// docs/plans/settings-redesign.md.
+//
 // A pinned setting is a mirror, not a copy: its chip in #pinned-row reads the
 // drawer control and, when changed, sets that control and fires its change
 // event. So saving, presets and re-rendering all run through the drawer's one
 // change handler (src/main.js), whichever of the two the user touched.
 
-import { CLEAN_IDS, SECTION_FOR_VIEW, knownPins } from "./controls.js";
+import { CLEAN_IDS, SETTING_SECTIONS, changed, drawerSectionFor, knownPins } from "./controls.js";
 
 const PIN_KEY = "textmint-pins";
+const MORE_KEY = "textmint-drawer-more";
+const SECTIONS = Object.keys(SETTING_SECTIONS);
 
 // A pushpin outline, drawn in the text color.
 const PIN_SVG =
@@ -27,6 +34,17 @@ function loadPins() {
 }
 function savePins(pins) {
   try { localStorage.setItem(PIN_KEY, JSON.stringify(pins)); } catch (e) { /* storage unavailable */ }
+}
+
+// Which sections have More options open: { markdown: true, ... }.
+function loadMore() {
+  try {
+    const m = JSON.parse(localStorage.getItem(MORE_KEY));
+    return m && typeof m === "object" && !Array.isArray(m) ? m : {};
+  } catch (e) { return {}; }
+}
+function saveMore(more) {
+  try { localStorage.setItem(MORE_KEY, JSON.stringify(more)); } catch (e) { /* storage unavailable */ }
 }
 
 // A setting's row in the drawer.
@@ -51,12 +69,73 @@ export function initDrawer(ctx) {
 
   function isOpen() { return !drawer.hidden; }
 
+  // --- Tabs -------------------------------------------------------------------
+  const tabList = el("settings-tabs");
+  const panels = {};
+  const tabs = {};
+  SECTIONS.forEach((key) => {
+    const panel = el("section-" + key);
+    if (!panel) return;
+    panels[key] = panel;
+    const t = document.createElement("button");
+    t.type = "button";
+    t.className = "settings-tab";
+    t.id = "settings-tab-" + key;
+    t.setAttribute("role", "tab");
+    t.setAttribute("aria-controls", panel.id);
+    t.textContent = panel.dataset.title || key;
+    t.addEventListener("click", () => choose(key));
+    tabs[key] = t;
+    tabList.appendChild(t);
+  });
+  const tabKeys = Object.keys(tabs);
+
+  let current = null;
+  // The tab last chosen, and the Output tab active when it was. The gear goes
+  // back to it only while that Output tab is still the active one. Not saved:
+  // it lasts while the app runs.
+  let last = null;
+  let lastView = null;
+
+  function select(key) {
+    if (!tabs[key]) key = "cleaning";
+    current = key;
+    tabKeys.forEach((k) => {
+      const on = k === key;
+      tabs[k].setAttribute("aria-selected", on ? "true" : "false");
+      tabs[k].tabIndex = on ? 0 : -1; // roving tabindex
+      panels[k].hidden = !on;
+    });
+    return key;
+  }
+
+  // A tab the user picked (or a section opened for them): remember it.
+  function choose(key) {
+    key = select(key);
+    last = key;
+    lastView = ctx.activeView();
+    return key;
+  }
+
+  tabList.addEventListener("keydown", (e) => {
+    const i = tabKeys.indexOf(current);
+    let next = -1;
+    if (e.key === "ArrowRight") next = (i + 1) % tabKeys.length;
+    else if (e.key === "ArrowLeft") next = (i + tabKeys.length - 1) % tabKeys.length;
+    else if (e.key === "Home") next = 0;
+    else if (e.key === "End") next = tabKeys.length - 1;
+    if (next < 0) return;
+    e.preventDefault();
+    tabs[choose(tabKeys[next])].focus();
+  });
+
+  // Open the drawer at a section's tab, and focus that tab.
   function open(section) {
+    const key = choose(section);
     drawer.hidden = false;
     gear.setAttribute("aria-expanded", "true");
-    const head = el("section-" + section + "-title") || el("settings-title");
-    head.scrollIntoView({ block: "start" });
-    head.focus({ preventScroll: true });
+    drawer.scrollTop = 0;
+    tabs[key].focus({ preventScroll: true });
   }
 
   function close() {
@@ -67,8 +146,8 @@ export function initDrawer(ctx) {
   }
 
   gear.addEventListener("click", () => {
-    if (isOpen()) close();
-    else open(SECTION_FOR_VIEW[ctx.activeView()] || "cleaning");
+    if (isOpen()) { close(); return; }
+    open(drawerSectionFor(ctx.activeView(), last, lastView));
   });
   chip.addEventListener("click", () => open("cleaning"));
   el("settings-close").addEventListener("click", close);
@@ -80,6 +159,29 @@ export function initDrawer(ctx) {
     e.preventDefault();
     close();
   }, true);
+
+  // --- More options -------------------------------------------------------------
+  const more = loadMore();
+  const disclosures = Array.from(drawer.querySelectorAll("details.more"));
+  disclosures.forEach((d) => {
+    d.open = more[d.dataset.more] === true;
+    d.addEventListener("toggle", () => {
+      more[d.dataset.more] = d.open;
+      saveMore(more);
+    });
+  });
+
+  // The quiet "changed" dot on a More options summary: shown while any setting
+  // inside differs from its default, so a hidden non-default is never invisible.
+  function refreshMore() {
+    disclosures.forEach((d) => {
+      const any = Array.from(d.querySelectorAll("input, select")).some(changed);
+      const dot = d.querySelector(".more-dot");
+      if (dot) dot.hidden = !any;
+    });
+  }
+
+  select("cleaning");
 
   // --- Pins -------------------------------------------------------------------
   function setPinned(id, on) {
@@ -196,6 +298,7 @@ export function initDrawer(ctx) {
       b.dataset.tip = pinned ? "Pinned to the bar under the header. Click to unpin." : "Pin to the bar under the header.";
     });
 
+    refreshMore();
     buildRow();
     chipSync.forEach((sync) => sync());
   }

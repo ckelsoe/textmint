@@ -1,6 +1,6 @@
 # Textmint — Design System
 
-**As of:** 2026-08-24 · **Status:** adopted and **applied** to `src/styles.css` (Whisper palette, mint focus rings)
+**As of:** 2026-08-24, components updated 2026-09-26 · **Status:** adopted and **applied** to `src/styles.css` (Whisper palette, mint focus rings)
 
 The visual system for Textmint. Built with the `brand-identity` design method: a mint identity
 with **deliberately quiet, near-neutral surfaces** so the accent does the talking. Live preview:
@@ -33,6 +33,7 @@ Token names match the CSS custom properties in `src/styles.css` (`--clr-*`). "Wh
 |-------|-----|------|
 | `--clr-bg` | `#202322` | Window / base surface |
 | `--clr-surface` | `#282B2A` | Chrome: header, status bar, elevated |
+| `--clr-raised` | `#2F3331` | The Settings drawer, raised above the chrome |
 | `--clr-out-bg` | `#191C1B` | Editor / output well (deepest) |
 | `--clr-border` | `#363A38` | Dividers, control borders |
 | `--clr-border-sub` | `#262928` | Subtle inner borders |
@@ -45,7 +46,6 @@ Token names match the CSS custom properties in `src/styles.css` (`--clr-*`). "Wh
 | `--clr-mint-txt` | `#06231B` | Text/icon on mint |
 | `--clr-accent-text` | `#57D6B3` | Wordmark "mint", links |
 | `--clr-sec` / `--clr-sec-h` | `#313633` / `#3C433F` | Secondary button |
-| `--clr-clear-txt` | `#A4ACA8` | Ghost (Clear) button text |
 | focus ring | `#33C89E` | Keyboard focus outline |
 
 ### Light theme
@@ -54,6 +54,7 @@ Token names match the CSS custom properties in `src/styles.css` (`--clr-*`). "Wh
 |-------|-----|------|
 | `--clr-bg` | `#EDF0EF` | Window / base surface |
 | `--clr-surface` | `#F5F8F7` | Chrome / elevated |
+| `--clr-raised` | `#FAFCFB` | The Settings drawer, raised above the chrome |
 | `--clr-out-bg` | `#F1F6F4` | Output well |
 | `--clr-border` | `#DBE1DF` | Dividers, control borders |
 | `--clr-border-sub` | `#E7EBE9` | Subtle inner borders |
@@ -66,7 +67,6 @@ Token names match the CSS custom properties in `src/styles.css` (`--clr-*`). "Wh
 | `--clr-mint-txt` | `#FFFFFF` | Text/icon on mint |
 | `--clr-accent-text` | `#0E8E6F` | Wordmark "mint", links |
 | `--clr-sec` / `--clr-sec-h` | `#DFE6E3` / `#CFDDD7` | Secondary button |
-| `--clr-clear-txt` | `#515A57` | Ghost button text |
 | focus ring | `#0E8E6F` | Keyboard focus outline |
 
 ### Mint accent scale (shared reference)
@@ -115,19 +115,30 @@ To change: shift the neutral tokens' hue; the mint accent tokens stay put.
 - **Primary button (Clean):** mint bg, `--clr-mint-txt`. The only mint-filled control in the
   header. The other mint fill is the status-bar update pill (below).
 - **Secondary (Copy / Copy HTML):** neutral `--clr-sec`.
-- **Ghost (Clear):** transparent, bordered.
+- **Clear (Input pane):** a text button at the right of the Input header, `--clr-dim`, shown
+  only while the input has text; a `--clr-border` outline on hover. After a clear, "Cleared
+  Undo" takes its place for about 5 seconds, the Undo a `.link-btn`. It replaced the header's
+  ghost Clear button and its `--clr-clear*` tokens on 2026-09-26.
 - **Checkboxes:** `accent-color: var(--clr-mint)`.
 - **Focus:** every interactive element gets a visible mint focus ring (keyboard nav).
 - **Tooltips:** inverted surface, subtle shadow.
-- **Header:** an action bar since 0.6.0: Clear, Copy text, Copy markdown, Copy HTML (one look,
-  `--clr-sec`, mint "Copied!" flash), and the theme toggle. No settings live there.
+- **Header:** an action bar since 0.6.0: Copy text, Copy markdown, Copy HTML (one look,
+  `--clr-sec`, mint "Copied!" flash), and the theme toggle. No settings live there. Clear moved
+  to the Input pane on 2026-09-26.
 - **Icon buttons** (`.icon-btn`): round, ghost style, mint on hover. The theme toggle in the
   header; the settings gear, smaller, at the right of the Output tab row.
-- **Settings drawer:** non-modal, over the input pane (380px, or 50%; full width below 800px),
-  `--clr-surface` with a right border and a soft shadow, so the output stays visible and live.
-  Sections in pipeline order (Cleaning, Paste, Text, Markdown, HTML), each with a one-line note
-  on what it affects. Rows are label, control and a pin toggle on a 130px / 1fr / auto grid.
-- **Pin toggle:** a pushpin outline in `--clr-muted`, `--clr-mint` when pinned.
+- **Settings drawer:** non-modal, over the input pane (440px, or 50%; full width below 800px),
+  `--clr-raised` (a step above the chrome's `--clr-surface`, so it does not blend into the
+  header and pane labels) with a right border and a soft shadow, so the output stays visible and live.
+  A tab row shows one section at a time, in pipeline order (Cleaning, Paste, Text, Markdown,
+  HTML): 12px/600 labels in `--clr-dim`, the selected one `--clr-text` with a 2px `--clr-mint`
+  underline. Each section has a one-line note in `--clr-dim` on what it affects. Rows are
+  label, control and pin on a `minmax(0, 1fr) / 190px / auto` grid: one select width that holds
+  the longest option, so the selects line up. Less common settings sit under a "More options" disclosure (12px/600,
+  `--clr-dim`, a rotating triangle); a 6px `--clr-mint` dot on its summary means a setting
+  inside differs from its default. See `docs/plans/settings-redesign.md`.
+- **Pin toggle:** a pushpin outline in `--clr-muted`, `--clr-mint` when pinned. Transparent
+  until its row is hovered or focused, unless pinned; it stays in the Tab order.
 - **Pinned row:** under the header, hidden when empty. Chips are outlined pills: a toggle chip
   fills with the primary pair when on; a select chip shows "Name: value".
 - **Cleaning chip:** an outlined pill in the Output tab row, "Cleaning: n of 5", opening the
@@ -147,6 +158,20 @@ To change: shift the neutral tokens' hue; the mint accent tokens stay put.
 All text/background pairs verified against WCAG AA (4.5:1 body, 3:1 large/UI). Key checks:
 `--clr-text` on `--clr-bg` >12:1 both themes; white on light primary `#0B7E62` ~4.9:1; dark
 `--clr-mint-txt` on `--clr-mint` ~8:1. Do not adjust a color without re-checking its pair.
+
+`--clr-raised` (2026-09-26), the Settings drawer surface:
+
+| Pair on `--clr-raised` | Dark | Light |
+|---|---|---|
+| `--clr-text` | 10.65:1 | 16.06:1 |
+| `--clr-dim` (labels, notes, tabs, More options) | 5.52:1 | 6.91:1 |
+| `--clr-mint` (links in the drawer, the changed dot, the tab underline) | 6.04:1 | 4.88:1 |
+| `--clr-muted` (the pin icon only, a UI glyph, not text) | 3.04:1 | 3.88:1 |
+
+`--clr-muted` is not used as text on `--clr-raised`. `--clr-accent-text` is 3.98:1 on the light
+raised surface, under AA for 13px text, so links inside the drawer (Edit map) use `--clr-mint`.
+Selects and the number field keep `--clr-bg`, a step darker (dark) or lighter-tinted (light)
+than the drawer, so they still read as fields.
 
 ## App icon
 

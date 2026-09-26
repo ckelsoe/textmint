@@ -86,6 +86,27 @@ export function renderFlavorFor(flavor, gfm) {
 // The drawer section to open for an Output tab.
 export const SECTION_FOR_VIEW = { text: "text", markdown: "markdown", html: "html", rendered: "html" };
 
+// The section the gear opens: the last tab chosen while the Output tab is still
+// the one active when it was chosen, else the section for the Output tab, else
+// Cleaning.
+export function drawerSectionFor(view, last, lastView) {
+  if (last && lastView === view) return last;
+  return SECTION_FOR_VIEW[view] || "cleaning";
+}
+
+// True when a control differs from the default written in index.html (the
+// More options "changed" dot). The markup is the default, so a flavor preset
+// that moves a hidden setting counts.
+export function changed(control) {
+  if (control.type === "checkbox") return control.checked !== control.defaultChecked;
+  if (control.tagName === "SELECT") {
+    const opts = Array.from(control.options);
+    const def = opts.find((o) => o.defaultSelected) || opts[0];
+    return !!def && control.value !== def.value;
+  }
+  return control.value !== control.defaultValue;
+}
+
 // Saved preferences, keeping only controls that exist now. 0.5.0 saved
 // opt-strip-markdown, which is no longer a setting; anything like it is dropped
 // here instead of reaching a control that is not there.
