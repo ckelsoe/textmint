@@ -43,6 +43,7 @@ not the app transmitting anything.
 - **Package:** `glib` 0.18.5 (Rust) · **Severity:** medium · **Patched in:** 0.20.0
 - **Where:** transitive dependency `src-tauri/Cargo.lock`.
 - **Dependency chain:** `glib 0.18.5` ← `gtk 0.18.2` (`glib = "^0.18"`) ← `tauri 2.11.5`
+  (still 0.18.5 under `tauri 2.12.5`, rechecked 2026-11-11)
   (`gtk = "^0.18"`) ← `textmint`.
 
 **Why it was dismissed as "not used":**
