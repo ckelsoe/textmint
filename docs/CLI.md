@@ -8,6 +8,7 @@ GUI and no window running.
 ```
 textmint clean    [options] [file]   Clean text, markdown removed (stdin -> stdout)
 textmint markdown [options] [file]   Clean text, markdown kept   (stdin -> stdout)
+textmint discord  [options] [file]   Clean text, markdown shaped for Discord
 textmint html     [options] [file]   Clean to markdown, then render to HTML
 textmint open     [file|-]           Load text into the Textmint window to review
 ```
@@ -33,6 +34,7 @@ app's shipped defaults. Turn one off with its `--no-` flag:
 --no-strip-noise --no-strip-unicode --no-strip-markdown --no-bullets
 --no-join-lines --no-strip-indent --no-collapse-blank --no-wrap
 --wrap <n>            Wrap width (default 80)
+--quote-bars         Keep Claude Code's quote bar as a blockquote (default: drop it)
 --explain            Report to stderr which blocks were kept verbatim, and why
 --emoji <m>          remove (default) deletes emoji; text converts the mapped ones
                      to text first, then removes the rest
@@ -110,6 +112,9 @@ settings.
 pbpaste -Prefer html | textmint markdown          # a copied web page as markdown
 textmint html --html-mode markdown < page.html    # uniform HTML from any source
 textmint markdown --flavor obsidian < note.html   # keeps ==highlights==
+textmint discord < reply.md                       # bullets as U+2022, numbers escaped,
+                                                  # tables fenced; not split at 2,000
+                                                  # characters (the app's Discord tab is)
 ```
 
 ## How `open` works, and why it is safe

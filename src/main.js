@@ -1,7 +1,7 @@
 // Textmint - clean & convert AI text. Runs entirely on-device.
 // Source is intentionally ASCII-only: every special codepoint is a \u escape
 // so the cleaning regexes can never be corrupted by copy/paste.
-import { clean, cleanToMarkdown, looksLikeHtml, prefersPlainPaste } from "./pipeline.js";
+import { clean, cleanToMarkdown, looksLikeHtml, prefersPlainPaste, splitDiscord } from "./pipeline.js";
 import { initBridge } from "./bridge.js";
 import { initUpdate } from "./update.js";
 import { initDrawer } from "./drawer.js";
@@ -14,11 +14,13 @@ import {
   const inputEl      = document.getElementById("input");
   const outputEl     = document.getElementById("output");            // Text view
   const outputMdEl   = document.getElementById("output-markdown");   // Markdown view
+  const outputDcEl   = document.getElementById("output-discord");    // Discord view
   const outputRendEl = document.getElementById("output-rendered");   // Rendered HTML
   const outputHtmlEl = document.getElementById("output-html");       // HTML source
   const btnCopy      = document.getElementById("btn-copy");
   const btnCopyMd    = document.getElementById("btn-copy-md");
   const btnCopyHtml  = document.getElementById("btn-copy-html");
+  const btnCopyDc    = document.getElementById("btn-copy-discord");
   const btnClear     = document.getElementById("btn-clear");     // in the Input pane
   const clearUndoEl  = document.getElementById("clear-undo");
   const btnUndoClear = document.getElementById("btn-undo-clear");
@@ -136,6 +138,7 @@ import {
   function opts() {
     return {
       stripNoise:    opt("opt-strip-noise"),
+      quoteBars:     opt("opt-quote-bars"),
       stripUnicode:  opt("opt-strip-unicode"),
       emojiMap:      emojiMap(),
       stripMarkdown: true, // the Text output is plain text by definition
@@ -233,12 +236,29 @@ import {
     statLines.textContent = lines.toLocaleString() + " lines";
   }
 
-  // One render fills all four Output views from the current input and options:
+  // One render fills all five Output views from the current input and options:
   // Text (cleaned, markdown stripped), Markdown (cleaned, markdown kept), and
   // Rendered / HTML (that markdown run through the Rust renderer). Async because
   // the render is a Rust call; a sequence guard drops a stale result so a fast
   // typist never sees an earlier render land last.
   let renderSeq = 0;
+  // The Discord view: the markdown shaped for Discord (whatever the Flavor),
+  // as messages within its limit. The view marks where each starts; Copy
+  // Discord copies one per click.
+  let dcParts = [];
+  let dcPart = 0;
+  const dcCopyLabel = () => dcParts.length > 1
+    ? "Copy Discord " + (dcPart + 1) + "/" + dcParts.length : "Copy Discord";
+  const partMark = (i, n, len) => "\u2500\u2500\u2500\u2500 Message " + (i + 1) + " of " + n +
+    " (" + len.toLocaleString() + " chars) \u2500\u2500\u2500\u2500";
+  function setDiscord(md) {
+    dcParts = md ? splitDiscord(md) : [];
+    dcPart = 0;
+    outputDcEl.value = dcParts.length > 1
+      ? dcParts.map((p, i) => partMark(i, dcParts.length, p.length) + "\n" + p).join("\n\n") : md;
+    if (!btnCopyDc.classList.contains("copied")) btnCopyDc.textContent = dcCopyLabel();
+  }
+
   async function render() {
     const seq = ++renderSeq;
     syncInputChrome();
@@ -247,6 +267,7 @@ import {
     const md = cleanToMarkdown(input, o);
     outputEl.value = clean(input, o);
     outputMdEl.value = md;
+    setDiscord(cleanToMarkdown(input, { ...o, mdDiscord: true }));
     updateStats(input, outputEl.value);
     const html = await htmlFor(md); // htmlFor is the only place HTML is produced
     if (seq !== renderSeq) return html; // a newer render superseded this one
@@ -265,6 +286,7 @@ import {
     setHeld(null);
     outputEl.value = "";
     outputMdEl.value = "";
+    setDiscord("");
     outputRendEl.innerHTML = "";
     outputHtmlEl.value = "";
     updateStats("", "");
@@ -324,6 +346,13 @@ import {
     return copyText(outputMdEl.value);
   }
 
+  async function actCopyDiscord() {
+    if (!dcParts.length) return false;
+    const ok = await copyText(dcParts[dcPart]);
+    if (ok) dcPart = (dcPart + 1) % dcParts.length;
+    return ok;
+  }
+
   // The HTML the Preview shows and Copy HTML puts on the clipboard: the cleaned
   // markdown run through the Rust renderer. One source of truth. render() passes
   // the markdown it already computed; other callers let it be recomputed.
@@ -348,7 +377,7 @@ import {
   const TAB_KEY = "textmint-output-tab";
   const tabs = Array.from(document.querySelectorAll(".output-tabs .tab"));
   const views = {
-    text: outputEl, markdown: outputMdEl, rendered: outputRendEl, html: outputHtmlEl,
+    text: outputEl, markdown: outputMdEl, discord: outputDcEl, rendered: outputRendEl, html: outputHtmlEl,
   };
   function showView(view) {
     if (!views[view]) view = "text";
@@ -378,6 +407,7 @@ import {
     { btn: btnCopy, label: "Copy text", key: "c", run: async () => actCopy() },
     { btn: btnCopyMd, label: "Copy markdown", key: "m", run: async () => actCopyMarkdown() },
     { btn: btnCopyHtml, label: "Copy HTML", key: "h", run: async () => (await actCopyHtml()).ok },
+    { btn: btnCopyDc, get label() { return dcCopyLabel(); }, key: "d", run: async () => actCopyDiscord() },
   ];
   async function copyVia(c) {
     if (await c.run()) flashCopied(c.btn, c.label);

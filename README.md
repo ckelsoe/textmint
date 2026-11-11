@@ -23,9 +23,10 @@ not a few hundred.
   becomes `->`. Settings > Emoji > To text, or `--emoji text` on the CLI.
 - **Reflow & tidy** — join soft-wrapped paragraph lines, normalize bullets, collapse blank
   lines, strip leading indentation, hard-wrap at a chosen width.
-- **Three outputs, three copy buttons** — **Copy text** (plain, markdown removed), **Copy
-  markdown**, and **Copy HTML**, which pastes into Outlook or Word as rich text with bold,
-  bullets, and headers intact.
+- **Four copy buttons** — **Copy text** (plain, markdown removed), **Copy markdown**,
+  **Copy HTML**, which pastes into Outlook or Word as rich text with bold, bullets, and
+  headers intact, and **Copy Discord**, which shapes the markdown so Discord does not
+  renumber or drop its lists and splits a long post into messages of 2,000 characters.
 - **Rich paste** — paste from Word, Google Docs, a web page or a chat app and the
   formatting comes with it: headings, lists, bold and tables arrive as markdown, and the
   HTML output keeps the source's formatting with the junk (Word's `mso-*` styles, fake
@@ -36,7 +37,7 @@ not a few hundred.
   under the header.
 - **Clear with undo** in the input pane: Undo, or `Cmd+Z` straight after, brings the text back.
 - Live output as you type or paste, saved preferences, dark/light mode, keyboard shortcuts
-  (`Cmd+Shift+C` copy text, `Cmd+Shift+M` copy markdown, `Cmd+Shift+H` copy HTML).
+  (`Cmd+Shift+C` copy text, `Cmd+Shift+M` copy markdown, `Cmd+Shift+H` copy HTML, `Cmd+Shift+D` copy Discord).
 
 ## Develop
 

@@ -29,6 +29,7 @@
         <button id="btn-copy" data-tip="Copies the Text tab as plain text. Shortcut: Cmd+Shift+C.">Copy text</button>
         <button id="btn-copy-md" data-tip="Copies the Markdown tab as plain text, markup kept. Shortcut: Cmd+Shift+M.">Copy markdown</button>
         <button id="btn-copy-html" data-tip="Copies the HTML tab as rich text. Paste into Outlook or Word to get bold, bullets, and headers rendered. Shortcut: Cmd+Shift+H.">Copy HTML</button>
+        <button id="btn-copy-discord" data-tip="Copies the Discord tab, ready to paste into a Discord message. Over 2,000 characters it is split into parts, and each click copies the next part. Shortcut: Cmd+Shift+D.">Copy Discord</button>
         <button id="btn-theme" class="icon-btn" data-tip="Switch between dark and light mode. Preference is saved.">&#9681;</button>
       </div>
     </header>
@@ -52,6 +53,7 @@
           <div class="output-tabs" role="tablist" aria-label="Output view">
             <button class="tab active" id="tab-text" data-view="text" role="tab" aria-selected="true" aria-controls="output" data-tip="Cleaned plain text: markdown removed. This is what Copy text copies.">Text</button>
             <button class="tab" id="tab-markdown" data-view="markdown" role="tab" aria-selected="false" tabindex="-1" aria-controls="output-markdown" data-tip="Cleaned text with its markdown kept. This is what Copy markdown copies, and the source the Preview is rendered from.">Markdown</button>
+            <button class="tab" id="tab-discord" data-view="discord" role="tab" aria-selected="false" tabindex="-1" aria-controls="output-discord" data-tip="The markdown shaped for Discord, whatever the Flavor setting: bullets become the bullet character, numbers stay as typed, a numbered line over a bullet list turns bold, and tables become code blocks. Over 2,000 characters it is split into marked messages. This is what Copy Discord copies.">Discord</button>
             <button class="tab" id="tab-html" data-view="html" role="tab" aria-selected="false" tabindex="-1" aria-controls="output-html" data-tip="The HTML source: your rich paste cleaned (Clean HTML mode), or HTML generated from the markdown. This is what Copy HTML puts on the clipboard.">HTML</button>
             <button class="tab" id="tab-rendered" data-view="rendered" role="tab" aria-selected="false" tabindex="-1" aria-controls="output-rendered" data-tip="The formatted result of the HTML tab. Remote images do not load here but do paste; this is what Copy HTML sends to Word or Outlook.">Preview</button>
           </div>
@@ -62,6 +64,7 @@
         </div>
         <textarea id="output" class="output-view" role="tabpanel" aria-labelledby="tab-text" readonly placeholder="Cleaned text appears here..."></textarea>
         <textarea id="output-markdown" class="output-view" role="tabpanel" aria-labelledby="tab-markdown" readonly placeholder="Cleaned markdown appears here..." hidden></textarea>
+        <textarea id="output-discord" class="output-view" role="tabpanel" aria-labelledby="tab-discord" readonly placeholder="Markdown for Discord appears here..." hidden></textarea>
         <textarea id="output-html" class="output-view" role="tabpanel" aria-labelledby="tab-html" readonly placeholder="HTML source appears here..." hidden></textarea>
         <div id="output-rendered" class="output-view md-body" role="tabpanel" aria-labelledby="tab-rendered" tabindex="0" hidden></div>
       </div>
@@ -74,9 +77,13 @@
         <div id="settings-tabs" class="settings-tabs" role="tablist" aria-label="Settings sections"></div>
         <section class="settings-section" id="section-cleaning" data-section="cleaning" data-title="Cleaning" role="tabpanel" aria-labelledby="settings-tab-cleaning">
           <p class="settings-note">Changes the text itself, so every output.</p>
-          <div data-setting="opt-strip-noise" class="control-group" data-tip="Removes AI terminal artifacts: Thought for Xs lines, nested output lines starting with the arrow symbol, (ctrl+o to expand) text, and tool-marker prefix symbols.">
+          <div data-setting="opt-strip-noise" class="control-group" data-tip="Removes AI terminal artifacts: Thought for Xs lines, nested output lines starting with the arrow symbol, (ctrl+o to expand) text, tool-marker prefix symbols, and the quote bar at the start of quoted lines (see Keep quote bars as quotes).">
             <input type="checkbox" id="opt-strip-noise" checked />
             <label for="opt-strip-noise">Strip AI noise</label>
+          </div>
+          <div data-setting="opt-quote-bars" class="control-group" data-tip="With Strip AI noise on. Claude Code marks quoted text with a bar at the start of each line. Off removes the bar and keeps only the text. On turns it into a markdown blockquote.">
+            <input type="checkbox" id="opt-quote-bars" />
+            <label for="opt-quote-bars">Keep quote bars as quotes</label>
           </div>
           <div data-setting="opt-strip-unicode" class="control-group" data-tip="Removes emojis (or converts them to text, see Emoji), zero-width characters, variation selectors, text direction marks, terminal colour codes, control characters, math symbols, and non-ASCII currency symbols.">
             <input type="checkbox" id="opt-strip-unicode" checked />
@@ -288,9 +295,9 @@
       <span id="stat-in">In: 0 chars</span>
       <span id="stat-out">Out: 0 chars</span>
       <span id="stat-lines">0 lines</span>
-      <span class="footer-credit">Created by Charles Kelsoe &nbsp;<button type="button" id="btn-about" data-tip="About Textmint, and check for updates." class="footer-version">v0.8.0</button></span>
+      <span class="footer-credit">Created by Charles Kelsoe &nbsp;<button type="button" id="btn-about" data-tip="About Textmint, and check for updates." class="footer-version">v0.9.0</button></span>
       <span id="update-pill" class="update-pill" role="status" aria-live="polite" hidden></span>
-      <span class="footer-shortcuts">Cmd+Shift+C text &nbsp; Cmd+Shift+M markdown &nbsp; Cmd+Shift+H HTML</span>
+      <span class="footer-shortcuts">Cmd+Shift+C text &nbsp; Cmd+Shift+M markdown &nbsp; Cmd+Shift+H HTML &nbsp; Cmd+Shift+D Discord</span>
     </div>
 
 

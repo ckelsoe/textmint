@@ -111,7 +111,7 @@ test("strip markdown and Clean are gone from the app", () => {
   assert.ok(!HTML.includes("opt-strip-markdown"));
   assert.ok(!HTML.includes('id="btn-clean"'));
   assert.ok(!CHECK_IDS.includes("opt-strip-markdown"));
-  for (const id of ["btn-copy", "btn-copy-md", "btn-copy-html"]) assert.ok(HTML.includes('id="' + id + '"'), id);
+  for (const id of ["btn-copy", "btn-copy-md", "btn-copy-html", "btn-copy-discord"]) assert.ok(HTML.includes('id="' + id + '"'), id);
 });
 
 test("Clear lives in the Input pane header, not the app header", () => {
@@ -123,11 +123,11 @@ test("Clear lives in the Input pane header, not the app header", () => {
 });
 
 test("the cleaning chip counts the five cleaning passes", () => {
-  // The section also holds the Emoji select, which shapes Strip Unicode junk
-  // rather than being a pass of its own, so the chip does not count it.
-  assert.deepEqual(SETTING_SECTIONS.cleaning.filter((id) => id !== "opt-emoji"), CLEAN_IDS);
+  // The section also holds Quote bars and the Emoji select, which shape Strip
+  // AI noise and Strip Unicode junk rather than being passes, so the chip does not count them.
+  assert.deepEqual(SETTING_SECTIONS.cleaning.filter((id) => id !== "opt-emoji" && id !== "opt-quote-bars"), CLEAN_IDS);
   assert.equal(CLEAN_IDS.length, 5);
-  for (const view of ["text", "markdown", "html", "rendered"]) assert.ok(SETTING_SECTIONS[SECTION_FOR_VIEW[view]], view);
+  for (const view of ["text", "markdown", "discord", "html", "rendered"]) assert.ok(SETTING_SECTIONS[SECTION_FOR_VIEW[view]], view);
 });
 
 test("prefs from 0.5.0 lose the settings that no longer exist", () => {

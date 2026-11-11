@@ -156,3 +156,9 @@ test("--emoji-map reads a custom map and rejects a bad one", async () => {
   assert.match(r2.stderr, /--emoji-map must be/);
   assert.notEqual(run(["clean", "--emoji", "sometimes"], "x").status, 0);
 });
+
+test("discord bolds a numbered section title; markdown leaves it", () => {
+  assert.equal(run(["markdown"], "1. Rules\n- one").stdout, "1. Rules\n- one");
+  assert.equal(run(["discord"], "1. Rules\n- one\n- two").stdout,
+    "**1. Rules**\n\u2022 one\n\u2022 two");
+});

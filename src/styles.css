@@ -147,9 +147,9 @@ button {
 
 
 /* The three copy buttons: one look, one "Copied!" flash. */
-#btn-copy, #btn-copy-md, #btn-copy-html { background: var(--clr-sec); color: var(--clr-text); }
-#btn-copy:hover, #btn-copy-md:hover, #btn-copy-html:hover { background: var(--clr-sec-h); }
-#btn-copy.copied, #btn-copy-md.copied, #btn-copy-html.copied { background: var(--clr-mint); color: var(--clr-mint-txt); }
+#btn-copy, #btn-copy-md, #btn-copy-html, #btn-copy-discord { background: var(--clr-sec); color: var(--clr-text); }
+#btn-copy:hover, #btn-copy-md:hover, #btn-copy-html:hover, #btn-copy-discord:hover { background: var(--clr-sec-h); }
+#btn-copy.copied, #btn-copy-md.copied, #btn-copy-html.copied, #btn-copy-discord.copied { background: var(--clr-mint); color: var(--clr-mint-txt); }
 
 /* Text for screen readers only. */
 .sr-only {

@@ -8,6 +8,7 @@
 export const CHECK_IDS = [
   "opt-strip-noise", "opt-strip-unicode", "opt-wrap",
   "opt-collapse-blank", "opt-strip-indent", "opt-bullets", "opt-join-lines",
+  "opt-quote-bars",
 ];
 
 // The cleaning passes the tab row's "Cleaning: n of 5" chip counts.
@@ -21,10 +22,10 @@ export const CLEAN_IDS = [
 // opens at the section for the active Output tab, and test/controls.test.js
 // checks index.html against this. opt-wrap's row also holds opt-wrap-width.
 export const SETTING_SECTIONS = {
-  // The cleaning passes, with the Emoji setting under Strip Unicode junk,
-  // whose emoji it decides the fate of.
+  // The cleaning passes, with Quote bars under Strip AI noise and the Emoji
+  // setting under Strip Unicode junk, the passes they shape.
   cleaning: [
-    "opt-strip-noise", "opt-strip-unicode", "opt-emoji", "opt-join-lines", "opt-strip-indent",
+    "opt-strip-noise", "opt-quote-bars", "opt-strip-unicode", "opt-emoji", "opt-join-lines", "opt-strip-indent",
     "opt-collapse-blank",
   ],
   paste: ["opt-rich-paste", "md-math", "md-merged"],
@@ -84,7 +85,7 @@ export function renderFlavorFor(flavor, gfm) {
 
 
 // The drawer section to open for an Output tab.
-export const SECTION_FOR_VIEW = { text: "text", markdown: "markdown", html: "html", rendered: "html" };
+export const SECTION_FOR_VIEW = { text: "text", markdown: "markdown", discord: "markdown", html: "html", rendered: "html" };
 
 // The section the gear opens: the last tab chosen while the Output tab is still
 // the one active when it was chosen, else the section for the Output tab, else

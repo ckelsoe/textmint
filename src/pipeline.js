@@ -31,6 +31,11 @@ export const DEFAULTS = {
   mdHighlight: null,   // "equals" keeps ==x==; "plain" drops the markers
   mdCallouts: false,   // > Note: ... becomes > [!note]
   mdWrap: false,       // wrap markdown paragraphs and list items at wrapWidth
+  // With strip AI noise on: true turns Claude Code's quote bar into a markdown
+  // blockquote; false drops the bar and keeps only the text.
+  quoteBars: false,
+  // The Discord flavor: shape the markdown for Discord's chat (discordMarkdown).
+  mdDiscord: false,
 };
 
 // --- Cleaning pipeline ----------------------------------------------------
@@ -202,7 +207,7 @@ export function stripUnicode(text, emojiMap) {
   return text;
 }
 
-export function stripAiNoise(text) {
+export function stripAiNoise(text, quoteBars = false) {
   // Colour codes and window titles are terminal noise too, so this pass
   // takes them even with strip Unicode off.
   return stripTerminalEscapes(text).split("\n").map((line) => {
@@ -211,6 +216,10 @@ export function stripAiNoise(text) {
     if (/^\u23BF/.test(t)) return null;                // U+23BF nested output marker
     let out = line.replace(/\s*\(ctrl\+o to expand\)/gi, "");
     out = out.replace(/^(\s*)[\u25CF\u23FA]\s+/, "$1");         // U+25CF / U+23FA tool markers
+    // U+258E is Claude Code's quote bar: a blockquote, or just dropped. The
+    // blockquote starts at column 0: indentation before the bar is terminal gutter.
+    if (quoteBars) out = out.replace(/^\s*\u258E[ \t]?/, "> ").replace(/^> $/, ">");
+    else out = out.replace(/^(\s*)\u258E[ \t]?/, "$1");
     return out;
   }).filter((l) => l !== null).join("\n");
 }
@@ -246,7 +255,7 @@ export function stripMarkdown(text) {
   text = text.replace(/(^|[^\w*\\])(\*{1,3})(?=[^\s*])((?:[^\n]|\n(?![ \t]*\n)){0,1000}?[^\s*\\])\2(?![\w*])/g, "$1$3");
   text = text.replace(/(?<![\w\\])(_{1,3})(\S(?:[^\n]{0,1000}?\S)?)(?<!\\)\1(?!\w)/g, "$2"); // _em_ only at word boundaries, \_ is not a marker
   text = text.replace(/(^|[^~])~~(?=\S)([^\n]{0,1000}?\S)~~(?!~)/g, "$1$2");
-  text = text.replace(/^>\s?/gm, "");
+  text = text.replace(/^>[ \t]?/gm, "");  // not \s: an empty ">" line would eat its newline
   text = text.replace(/^[-*_]{3,}\s*$/gm, "");
   // Images first. The link pattern also matches the bracket pair inside
   // ![alt](src), which consumes it and strands the leading "!".
@@ -795,7 +804,7 @@ export function clean(text, options) {
   text = stripUnmaskable(text, o);
   const prot = maskProtected(text);
   let out = prot.masked;
-  if (o.stripNoise)    out = stripAiNoise(out);
+  if (o.stripNoise)    out = stripAiNoise(out, o.quoteBars);
   if (o.stripUnicode)  out = stripUnicode(out, o.emojiMap);
   if (o.stripMarkdown) out = stripMarkdown(out);
   if (o.bullets)       out = normalizeBullets(out);
@@ -881,7 +890,7 @@ function dedent(block) {
 // diagram, or a ragged or delimiter-less pipe block -- is dedented and wrapped
 // in a code fence, to render as <pre> and keep every column and cell. This
 // carries the 2026-09-20 alignment fix across the move of rendering into Rust.
-function fenceForHtml(block, tilde) {
+function fenceForHtml(block, tilde, noTables) {
   const lines = block.split("\n");
   // Frontmatter goes to the renderer as written; it parses it as metadata.
   if (/^---\s*$/.test(lines[0]) && /^(---|\.\.\.)\s*$/.test(lines[lines.length - 1])) return block;
@@ -889,11 +898,12 @@ function fenceForHtml(block, tilde) {
     const n = lines[0].match(/^[ \t]*/)[0].length;
     const strip = new RegExp("^[ \\t]{0," + n + "}");
     const out = n === 0 ? lines : lines.map((l) => l.replace(strip, ""));
+    if (noTables && fenceOpen(out[0]).ch === "~") return rebacktickFence(out).join("\n");
     return (tilde ? retildeFence(out) : out).join("\n");
   }
   const d = dedent(block);
   const dlines = d.split("\n");
-  if (dlines.every((l) => /^\|.*\|$/.test(l.trim())) && isGfmTable(dlines)) return d;
+  if (!noTables && dlines.every((l) => /^\|.*\|$/.test(l.trim())) && isGfmTable(dlines)) return d;
   // Longer than any run of the fence character inside, so a code block that
   // itself contains ``` cannot close its own fence early.
   const ch = tilde ? "~" : "`";
@@ -910,6 +920,19 @@ function retildeFence(lines) {
   out[0] = out[0].replace(/^(\s*)(`{3,})/, tildes);
   const last = out.length - 1;
   if (last > 0 && /^\s*`{3,}\s*$/.test(out[last])) out[last] = out[last].replace(/^(\s*)(`{3,})/, tildes);
+  return out;
+}
+
+// ~~~ fences to ```, for Discord, which knows only backticks. Longer than any
+// backtick run inside, so the code cannot close its own fence.
+function rebacktickFence(lines) {
+  const out = lines.slice();
+  const last = out.length - 1;
+  const closed = last > 0 && /^\s*~{3,}\s*$/.test(out[last]);
+  const runs = out.slice(1, closed ? last : undefined).join("\n").match(/`{3,}/g) || [];
+  const ticks = "`".repeat(runs.reduce((n, r) => Math.max(n, r.length + 1), 3));
+  out[0] = out[0].replace(/^(\s*)~{3,}/, "$1" + ticks);
+  if (closed) out[last] = out[last].replace(/^(\s*)~{3,}/, "$1" + ticks);
   return out;
 }
 
@@ -930,16 +953,22 @@ function retildeFence(lines) {
 // fencing the ones the renderer would otherwise flatten (fenceForHtml).
 export function cleanToMarkdown(text, options) {
   const o = { ...DEFAULTS, ...options };
+  // Discord renders none of these styles, whatever the Markdown settings say,
+  // and reads __x__ as underline, so bold goes as **x**.
+  if (o.mdDiscord) {
+    Object.assign(o, { mdHighlight: "plain", mdHeading: "atx", mdLinks: "inline", mdCallouts: false, mdEmphasis: "asterisk" });
+  }
   text = normalizeInput(text);
   text = stripUnmaskable(text, o);
   const prot = maskProtected(text);
   let out = prot.masked;
-  if (o.stripNoise)    out = stripAiNoise(out);
+  if (o.stripNoise)    out = stripAiNoise(out, o.quoteBars);
   if (o.stripUnicode)  out = stripUnicode(out, o.emojiMap);
   if (o.joinLines)     out = joinWrappedLines(out, true);
   if (o.stripIndent)   out = stripIndentMarkdown(out);
   if (o.collapseBlank) out = collapseBlankLines(out);
   out = restyleMarkdown(out, o);
+  if (o.mdDiscord) out = discordMarkdown(out);
   const src = trimOuter(out);
   return src.replace(/\uE000(\d+)\uE001/g, (match, n, offset) => {
     const block = prot.blocks[Number(n)];
@@ -952,8 +981,111 @@ export function cleanToMarkdown(text, options) {
     const end = offset + match.length;
     const before = offset >= 2 && src[offset - 2] !== "\n" ? "\n" : "";
     const after = src[end] === "\n" && src[end + 1] !== "\n" ? "\n" : "";
-    return before + fenceForHtml(block, o.mdFence === "tilde") + after;
+    // Discord has no tables and no ~~~ fences: a table goes as a ``` code block.
+    return before + fenceForHtml(block, o.mdFence === "tilde" && !o.mdDiscord, o.mdDiscord) + after;
   });
+}
+
+// Discord's chat markdown, applied inside the mask. Discord's own lists
+// re-indent, renumber or drop their markers once blank lines or mixed kinds
+// come in, so none are left: bullets become a literal U+2022, which Discord
+// leaves alone, and a number is escaped (1\.) so it reads as text. A numbered
+// line over a bullet list heads a section and becomes a bold line, and
+// headings below ###, which Discord does not show, become bold too.
+export function discordMarkdown(text) {
+  const lines = text.split("\n");
+  const BULLET = /^([ \t]*)[-*+][ \t]+(?=\S)/;
+  // Bold inside a title that is about to be bolded whole would nest the markers.
+  const bold = (s) => "**" + s.replace(/\*\*|__/g, "") + "**";
+  return lines.map((line, i) => {
+    const h = line.match(/^#{4,6}[ \t]+(.+?)(?:[ \t]+#+)?[ \t]*$/);
+    if (h) return bold(h[1]);
+    if (BULLET.test(line) && !/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) return line.replace(BULLET, "$1\u2022 ");
+    const n = line.match(/^([ \t]*)(\d+)([.)])([ \t]+)(\S.*?)[ \t]*$/);
+    if (!n) return line;
+    let j = i + 1;
+    while (j < lines.length && !lines[j].trim()) j++;
+    if (!n[1] && j < lines.length && /^[-*+][ \t]/.test(lines[j])) return bold(n[2] + n[3] + " " + n[5]);
+    return n[1] + n[2] + "\\" + n[3] + n[4] + n[5];
+  }).join("\n");
+}
+
+// Discord's message limit, without Nitro.
+export const DISCORD_LIMIT = 2000;
+
+// Splits markdown into Discord messages of at most `limit` characters. Cuts
+// fall between paragraphs (so a bold section title stays with its bullets),
+// never inside a ``` fence; a paragraph over the limit splits between lines,
+// and a line over it at a space. A code block over the limit is split between
+// lines too, each piece in its own copy of the fence.
+// shortcut: bold or `code` running across a cut inside one paragraph over the limit is not closed and reopened; add delimiter tracking if that shows up in real posts.
+export function splitDiscord(text, limit = DISCORD_LIMIT) {
+  const blocks = [];
+  let cur = [];
+  let fence = null; // the open fence; only a matching close ends it
+  const end = () => { if (cur.length) blocks.push(cur); cur = []; };
+  for (const line of text.split("\n")) {
+    if (fence) {
+      cur.push(line);
+      if (isFenceClose(line, fence)) { fence = null; end(); } // a fence is its own block
+    } else if ((fence = fenceOpen(line))) {
+      end();
+      cur.push(line);
+    } else if (!line.trim()) end();
+    else cur.push(line);
+  }
+  if (cur.length) blocks.push(cur);
+  const parts = [];
+  let part = "";
+  const add = (piece, sep) => {
+    if (part && part.length + sep.length + piece.length > limit) { parts.push(part); part = ""; }
+    part = part ? part + sep + piece : piece;
+  };
+  for (const b of blocks) {
+    const whole = b.join("\n");
+    if (whole.length <= limit) { add(whole, "\n\n"); continue; }
+    const open = b[0];
+    const f = fenceOpen(open);
+    // A fence left open at the end of the text is closed in every piece.
+    const closed = f && b.length > 1 && isFenceClose(b[b.length - 1], f);
+    const close = closed ? b[b.length - 1] : f ? f.ch.repeat(f.len) : "";
+    const room = limit - open.length - close.length - 2;
+    // A fence too long to leave real room splits like prose instead.
+    if (f && room >= 80) {
+      let chunk = [];
+      const flush = () => { if (chunk.length) add([open, ...chunk, close].join("\n"), "\n\n"); chunk = []; };
+      for (const line of b.slice(1, closed ? -1 : undefined)) {
+        for (const piece of chopLine(line, room)) {
+          if (chunk.length && chunk.join("\n").length + 1 + piece.length > room) flush();
+          chunk.push(piece);
+        }
+      }
+      flush();
+      continue;
+    }
+    b.forEach((line, k) => chopLine(line, limit).forEach((piece, m) =>
+      add(piece, k === 0 && m === 0 ? "\n\n" : "\n")));
+  }
+  if (part) parts.push(part);
+  return parts;
+}
+
+function chopLine(line, limit) {
+  const out = [];
+  while (line.length > limit) {
+    let cut = line.lastIndexOf(" ", limit);
+    if (cut <= 0) {
+      cut = limit;
+      // Never between the two halves of a surrogate pair (an emoji).
+      const c = line.charCodeAt(cut - 1);
+      if (c >= 0xD800 && c <= 0xDBFF && cut > 1) cut--;
+    }
+    cut = Math.max(cut, 1); // always progress, whatever the limit
+    out.push(line.slice(0, cut));
+    line = line.slice(cut).replace(/^ /, "");
+  }
+  out.push(line);
+  return out;
 }
 
 // --- Markdown style -----------------------------------------------------------

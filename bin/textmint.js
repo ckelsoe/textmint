@@ -6,13 +6,14 @@
 //
 //   textmint clean    < messy.txt       # cleaned plain text (markdown removed)
 //   textmint markdown < notes.md        # cleaned, markdown kept (source for HTML)
+//   textmint discord  < reply.md        # the markdown Copy Discord copies, unsplit
 //   textmint html     < notes.md        # the same HTML Copy HTML produces
 //   textmint open       notes.md        # load into the Textmint window to review
 //
 // Options for clean/markdown/html (all passes on by default, matching the app's
 // shipped defaults): --no-strip-noise --no-strip-unicode --no-strip-markdown
 // --no-bullets --no-join-lines --no-strip-indent --no-collapse-blank --no-wrap
-// --wrap <n>
+// --wrap <n>. --quote-bars keeps Claude Code's quote bar as a blockquote.
 //
 // HTML input (a saved web page, a Word export, a clipboard dump) is detected
 // and handled like the app's rich paste: converted to markdown for clean and
@@ -33,7 +34,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // rejected rather than ignored, so a silently-on pass never surprises a caller.
 const KNOWN_FLAGS = new Set([
   "help", "version", "wrap", "from-html", "plain", "flavor", "html-mode", "explain",
-  "emoji", "emoji-map",
+  "emoji", "emoji-map", "quote-bars",
   "no-strip-noise", "no-strip-unicode", "no-strip-markdown", "no-bullets",
   "no-join-lines", "no-strip-indent", "no-collapse-blank", "no-wrap",
 ]);
@@ -48,6 +49,7 @@ const USAGE = `textmint - clean & convert AI text on the command line
 Usage:
   textmint clean    [options] [file]   Clean text, markdown removed (stdin -> stdout)
   textmint markdown [options] [file]   Clean text, markdown kept   (stdin -> stdout)
+  textmint discord  [options] [file]   Clean text, markdown shaped for Discord
   textmint html     [options] [file]   Clean to markdown, render to HTML
   textmint open     [file|-]           Load text into the Textmint window to review
 
@@ -56,6 +58,7 @@ Options (clean/markdown/html), all on by default:
   --no-join-lines --no-strip-indent --no-collapse-blank
   --no-wrap            Do not hard-wrap lines
   --wrap <n>           Wrap width (default 80)
+  --quote-bars         Keep Claude Code's quote bar as a blockquote (default: drop it)
   --explain            Report to stderr which blocks were kept verbatim and why
   --emoji <m>          remove (default) deletes emoji; text converts mapped ones
                        to text first ([x] for a check mark), then removes the rest
@@ -128,6 +131,7 @@ function optsFrom({ flags, values, wrapWidth }) {
     // The flavor's highlight setting, from the same presets the app applies.
     mdHighlight: preset["md-highlight"],
     stripNoise: on("strip-noise"),
+    quoteBars: flags.has("quote-bars"),
     stripUnicode: on("strip-unicode"),
     emojiMap: emojiMapFrom(values),
     stripMarkdown: on("strip-markdown"),
@@ -273,13 +277,15 @@ async function main() {
   };
 
   // Loaded once, so --explain reports on exactly the text that is cleaned.
-  const input = ["clean", "markdown", "md", "html"].includes(cmd) ? await load() : null;
+  const input = ["clean", "markdown", "md", "discord", "html"].includes(cmd) ? await load() : null;
   if (input && flags.has("explain")) explain(input.text, opts);
 
   if (cmd === "clean") {
     process.stdout.write(clean(input.text, opts));
   } else if (cmd === "markdown" || cmd === "md") {
     process.stdout.write(cleanToMarkdown(input.text, opts));
+  } else if (cmd === "discord") {
+    process.stdout.write(cleanToMarkdown(input.text, { ...opts, mdDiscord: true }));
   } else if (cmd === "html") {
     const { text, html } = input;
     if (html != null && htmlMode === "clean") {

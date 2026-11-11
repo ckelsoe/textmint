@@ -720,3 +720,126 @@ test("convert mode reaches both outputs and the markdown renders a task list", (
   assert.equal(P.clean("\u2705 Tests pass", o), "[x] Tests pass");
   assert.equal(P.cleanToMarkdown("- \u2705 Tests pass", o), "- [x] Tests pass");
 });
+
+test("stripAiNoise drops Claude Code's quote bar, or keeps it as a blockquote", () => {
+  const input = "\u258E Title\n\u258E - item\n\u258E\n\u258E end";
+  assert.equal(P.stripAiNoise(input), "Title\n- item\n\nend");
+  assert.equal(P.stripAiNoise(input, true), "> Title\n> - item\n>\n> end");
+});
+
+test("clean drops the quote bar and keeps the list and blank line", () => {
+  const input = "\u258E Title\n\u258E - one\n\u258E - two\n\u258E\n\u258E end";
+  for (const quoteBars of [false, true]) {
+    assert.equal(P.clean(input, { stripNoise: true, stripMarkdown: true, joinLines: true, quoteBars }),
+      "Title\n- one\n- two\n\nend");
+  }
+  assert.equal(P.cleanToMarkdown(input, { stripNoise: true, quoteBars: true }).split("\n")[0], "> Title");
+  // Indented, as Claude Code prints it: the Text output is still plain.
+  assert.equal(P.clean("  \u258E one\n  \u258E\n  \u258E two",
+    { stripNoise: true, quoteBars: true, stripMarkdown: true, stripIndent: true }), "one\n\ntwo");
+});
+
+test("discordMarkdown bolds section titles and deep headings, and turns bullets into U+2022", () => {
+  assert.equal(P.discordMarkdown("1. Setup\n- step\n  * nested\n\n2. Ship\n\n- tag"),
+    "**1. Setup**\n\u2022 step\n  \u2022 nested\n\n**2. Ship**\n\n\u2022 tag");
+  assert.equal(P.discordMarkdown("#### Deep ##\n### Kept\n---"), "**Deep**\n### Kept\n---");
+});
+
+test("discordMarkdown escapes a numbered list so Discord shows the numbers as typed", () => {
+  assert.equal(P.discordMarkdown("1. one\n2. two\n\nAfter."), "1\\. one\n2\\. two\n\nAfter.");
+  assert.equal(P.discordMarkdown("1. one\n   - nested"), "1\\. one\n   \u2022 nested");
+});
+
+test("splitDiscord cuts between paragraphs, within the limit, losing nothing", () => {
+  const sections = Array.from({ length: 30 }, (_, i) => "**" + i + ". Title**\n" + "\u2022 item ".repeat(15).trim());
+  const text = sections.join("\n\n");
+  const parts = P.splitDiscord(text);
+  assert.ok(parts.length > 1);
+  assert.ok(parts.every((p) => p.length <= P.DISCORD_LIMIT));
+  assert.equal(parts.join("\n\n"), text);
+  assert.ok(parts.every((p) => p.startsWith("**")), "each message starts at a section");
+  assert.deepEqual(P.splitDiscord("short"), ["short"]);
+});
+
+test("splitDiscord keeps a fence whole and splits an oversized line at a space", () => {
+  const fence = "```\na\n\nb\n```";
+  assert.deepEqual(P.splitDiscord("x".repeat(15) + "\n\n" + fence, 20), ["x".repeat(15), fence]);
+  const long = "word ".repeat(10).trim();
+  assert.ok(P.splitDiscord(long, 12).every((p) => p.length <= 12 && !p.startsWith(" ")));
+});
+
+test("the Discord flavor fences tables with backticks, and only then", () => {
+  const md = "Intro\n\n| a | b |\n|---|---|\n| 1 | 2 |";
+  const out = P.cleanToMarkdown(md, { mdDiscord: true, mdFence: "tilde" });
+  assert.match(out, /^Intro\n\n```\n\| a \| b \|/);
+  assert.match(P.cleanToMarkdown(md, {}), /^Intro\n\n\| a \| b \|/);
+});
+
+test("splitDiscord re-fences each piece of an oversized code block", () => {
+  const body = Array.from({ length: 1100 }, () => "a");
+  const parts = P.splitDiscord("```js\n" + body.join("\n") + "\n```");
+  assert.ok(parts.length > 1);
+  for (const p of parts) {
+    assert.ok(p.length <= P.DISCORD_LIMIT);
+    assert.match(p, /^```js\n[\s\S]*\n```$/);
+  }
+  assert.equal(parts.map((p) => p.split("\n").slice(1, -1).join("\n")).join("\n"), body.join("\n"));
+});
+
+test("splitDiscord never cuts an emoji in half", () => {
+  const parts = P.splitDiscord("a".repeat(1999) + "\u{1F600}" + "b".repeat(10));
+  assert.equal(parts[0], "a".repeat(1999));
+  assert.ok(parts[1].startsWith("\u{1F600}"));
+});
+
+test("the Discord output turns a ~~~ fence into backticks", () => {
+  const out = P.cleanToMarkdown("Intro\n\n~~~py\nx = '```'\n~~~", { mdDiscord: true });
+  assert.equal(out, "Intro\n\n````py\nx = '```'\n````");
+  assert.match(P.cleanToMarkdown("Intro\n\n~~~py\nx = 1\n~~~", {}), /~~~py/);
+});
+
+test("splitDiscord keeps a fence that quotes a shorter fence whole", () => {
+  const text = "````md\n```js\n\n" + "a\n".repeat(1100) + "```\n````";
+  const parts = P.splitDiscord(text);
+  for (const p of parts) {
+    assert.ok(p.length <= P.DISCORD_LIMIT);
+    assert.match(p, /^````md\n[\s\S]*\n````$/);
+  }
+});
+
+test("splitDiscord ends when the fence lines leave no room", () => {
+  const open = "```" + "x".repeat(1990);
+  const parts = P.splitDiscord(open + "\n" + "a\n".repeat(50) + "```");
+  assert.ok(parts.length > 1 && parts.every((p) => p.length <= P.DISCORD_LIMIT));
+  assert.ok(P.splitDiscord("ab", 1).length === 2);
+});
+
+test("splitDiscord re-fences code that sits against prose", () => {
+  const text = "Intro\n```js\n" + "x\n".repeat(1100) + "```\nEnd";
+  const parts = P.splitDiscord(text);
+  const code = parts.filter((p) => p.includes("x"));
+  assert.ok(code.length > 1);
+  for (const p of code) assert.match(p, /```js\n[\s\S]*\n```/);
+  assert.ok(parts.every((p) => p.length <= P.DISCORD_LIMIT));
+});
+
+test("the Discord output ignores Markdown styles Discord cannot show", () => {
+  const md = "Title\n=====\n\nSee [docs](https://x.io) and ==this==.";
+  const out = P.cleanToMarkdown(md, { mdDiscord: true, mdHeading: "setext", mdLinks: "reference", mdHighlight: "equals" });
+  assert.equal(out, "# Title\n\nSee [docs](https://x.io) and this.");
+});
+
+test("splitDiscord closes and reopens a fence left open at the end", () => {
+  const parts = P.splitDiscord("```js\n" + "const a = 1;\n".repeat(200).trimEnd());
+  assert.ok(parts.length > 1);
+  for (const p of parts) assert.match(p, /^```js\n[\s\S]*\n```$/);
+});
+
+test("the Discord output writes bold with asterisks", () => {
+  assert.equal(P.cleanToMarkdown("A __bold__ and **strong** word.", { mdDiscord: true, mdEmphasis: "underscore" }),
+    "A **bold** and **strong** word.");
+});
+
+test("discordMarkdown does not nest bold in a bolded title", () => {
+  assert.equal(P.discordMarkdown("1. **Setup** now\n- one\n#### __Deep__"), "**1. Setup now**\n\u2022 one\n**Deep**");
+});
