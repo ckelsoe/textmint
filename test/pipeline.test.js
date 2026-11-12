@@ -181,6 +181,28 @@ test("cleanToMarkdown keeps a GFM table as a table and fences a box diagram", ()
   assert.ok(boxMd.includes("```"), "a box diagram must be fenced:\n" + boxMd);
 });
 
+test("cleanToMarkdown turns a box-drawing grid table into a GFM table", () => {
+  // Terminal and AI output draws tables with box characters. A grid with a
+  // header rule becomes a real table; wrapped cell text between rules is one row.
+  const box = [
+    "\u250C\u2500\u2500\u2500\u2500\u2500\u2500\u252C\u2500\u2500\u2500\u2500\u2500\u2510",
+    "\u2502 Name \u2502 Note \u2502",
+    "\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u253C\u2500\u2500\u2500\u2500\u2500\u2524",
+    "\u2502 Conn \u2502 a | b\u2502",
+    "\u2502 API  \u2502 c    \u2502",
+    "\u251C\u2500\u2500\u2500\u2500\u2500\u2500\u253C\u2500\u2500\u2500\u2500\u2500\u2524",
+    "\u2502 Two  \u2502 d    \u2502",
+    "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2534\u2500\u2500\u2500\u2500\u2500\u2518",
+  ].join("\n");
+  const md = P.cleanToMarkdown("Intro.\n\n" + box, {});
+  assert.ok(md.includes("| Name | Note |\n| --- | --- |\n| Conn API | a \\| b c |\n| Two | d |"), md);
+  assert.ok(!md.includes("```"), "a grid table must not be fenced:\n" + md);
+  // Discord has no tables, so the grid stays fenced there.
+  assert.ok(P.cleanToMarkdown(box, { mdDiscord: true }).includes("```"));
+  // The Text path keeps the drawing as it was.
+  assert.ok(P.clean(box, {}).includes(box));
+});
+
 test("cleanToMarkdown fences a pipe block with no delimiter row", () => {
   // Two pipe rows with no |---| separator are not a GFM table, so the renderer
   // would flatten them; fence them to keep their columns.

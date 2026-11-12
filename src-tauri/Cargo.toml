@@ -1,6 +1,6 @@
 [package]
 name = "textmint"
-version = "1.0.0"
+version = "1.0.1"
 description = "Textmint - clean & convert AI text, entirely on-device"
 authors = ["Charles Kelsoe"]
 edition = "2021"

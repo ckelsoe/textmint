@@ -869,6 +869,37 @@ function isGfmTable(lines) {
   return lines.every((l) => cellCount(l) === n);
 }
 
+// A box-drawing grid table (terminal and AI output) as a GFM table, or null when
+// the block is not one. It needs a closed frame, a vertical at each end of every
+// text line, the same column count throughout, and a header rule. Text lines
+// between two rules are one row, their cell text joined, so a wrapped cell reads
+// whole; a body with no rules between rows keeps one row per line.
+function boxToGfm(lines) {
+  const V = /[\u2502\u2503\u2551]/;
+  const isRule = (l) => /^[\u2500-\u257F]+$/.test(l.trim()) && !V.test(l);
+  const n = lines.length - 1;
+  if (n < 3 || !/^[\u250C\u250D\u250E\u250F\u2552\u2553\u2554\u256D]/.test(lines[0].trim())) return null;
+  if (!isRule(lines[0]) || !isRule(lines[n])) return null;
+  const groups = [[]];
+  let cols = 0;
+  for (const l of lines.slice(1, n)) {
+    const t = l.trim();
+    if (isRule(t)) { groups.push([]); continue; }
+    const cells = t.split(V);
+    if (cells.length < 4 || cells[0] !== "" || cells[cells.length - 1] !== "") return null;
+    if (cols && cells.length - 2 !== cols) return null;
+    cols = cells.length - 2;
+    groups[groups.length - 1].push(cells.slice(1, -1).map((c) => c.trim()));
+  }
+  const rowsOf = groups.filter((g) => g.length);
+  if (groups.length < 2 || rowsOf.length < 2 || groups[0].length === 0) return null;
+  const merge = (g) => g[0].map((_, c) => g.map((r) => r[c]).filter(Boolean).join(" "));
+  const body = rowsOf.slice(1);
+  const rows = [merge(rowsOf[0])].concat(body.length === 1 ? body[0] : body.map(merge));
+  const line = (r) => "| " + r.map((c) => c.replace(/\|/g, "\\|")).join(" | ") + " |";
+  return [line(rows[0]), "|" + " --- |".repeat(cols)].concat(rows.slice(1).map(line)).join("\n");
+}
+
 // Strip the common leading indentation from a block so it sits at column 0,
 // where its parse is guaranteed. Relative indentation inside the block is kept.
 function dedent(block) {
@@ -886,8 +917,8 @@ function dedent(block) {
 // to its opening indent stripped from every line, so a fence indented four or
 // more spaces is not misread as an indented code block with its ``` leaking as
 // text, and the code inside keeps its relative indentation. A well-formed GFM
-// table is dedented and left, to render as <table>. Anything else -- a box
-// diagram, or a ragged or delimiter-less pipe block -- is dedented and wrapped
+// table is dedented and left, to render as <table>, and a box-drawing grid
+// table becomes one (boxToGfm). Anything else -- a box diagram, or a ragged or delimiter-less pipe block -- is dedented and wrapped
 // in a code fence, to render as <pre> and keep every column and cell. This
 // carries the 2026-09-20 alignment fix across the move of rendering into Rust.
 function fenceForHtml(block, tilde, noTables) {
@@ -904,6 +935,8 @@ function fenceForHtml(block, tilde, noTables) {
   const d = dedent(block);
   const dlines = d.split("\n");
   if (!noTables && dlines.every((l) => /^\|.*\|$/.test(l.trim())) && isGfmTable(dlines)) return d;
+  const grid = noTables ? null : boxToGfm(dlines);
+  if (grid) return grid;
   // Longer than any run of the fence character inside, so a code block that
   // itself contains ``` cannot close its own fence early.
   const ch = tilde ? "~" : "`";
